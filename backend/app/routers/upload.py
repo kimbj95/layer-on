@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import ezdxf
+from ezdxf.colors import rgb2int
 from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -161,10 +162,9 @@ def _sync_apply_colors(session_dir: Path, overrides: dict[str, dict]) -> dict:
             color_hex = layer_info["default_color"]
             linetype = layer_info.get("linetype", "Continuous")
 
-        # Apply true color (RGB) to layer
+        # Apply true color (RGB) without overriding ACI
         r, g, b = hex_to_rgb(color_hex)
-        layer.set_color(1)
-        layer.rgb = (r, g, b)
+        layer.dxf.true_color = rgb2int((r, g, b))
 
         # Set description — prefixed by category for AutoCAD sorting
         korean_label = layer_info["name"]
