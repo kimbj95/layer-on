@@ -166,11 +166,15 @@ def _sync_apply_colors(session_dir: Path, overrides: dict[str, dict]) -> dict:
         layer.set_color(1)
         layer.rgb = (r, g, b)
 
-        # Set description to Korean name
+        # Set description — prefixed by category for AutoCAD sorting
         korean_label = layer_info["name"]
+        cat_major = layer_info.get("category_major", "")
+        cat_major_name = layer_info.get("category_major_name", "")
         mid_category = layer_info.get("category_mid", "")
-        if mid_category:
-            layer.description = f"{korean_label} [{mid_category}]"
+        if cat_major and mid_category:
+            layer.description = f"[{cat_major} {cat_major_name} > {mid_category}] {korean_label}"
+        elif cat_major:
+            layer.description = f"[{cat_major} {cat_major_name}] {korean_label}"
         else:
             layer.description = korean_label
 
