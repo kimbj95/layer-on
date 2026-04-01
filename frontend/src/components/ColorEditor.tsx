@@ -4,8 +4,11 @@ import { useState } from "react";
 import type { LayerInfo } from "@/types";
 
 const COLOR_PRESETS = [
-  "#FF6B6B", "#FFD32A", "#55EFC4", "#4D9FFF", "#A29BFE",
-  "#FF9F9F", "#00CEC9", "#E17055", "#B2BEC3", "#636E72",
+  "#FF6B6B", "#FF9F9F", "#FD79A8",  // red/pink
+  "#E17055", "#FF9F43", "#FFD32A",  // orange/yellow
+  "#55EFC4", "#00CEC9", "#4D9FFF",  // green/cyan/blue
+  "#A29BFE", "#6C5CE7",             // purple
+  "#B2BEC3", "#636E72", "#000000", "#FFFFFF",  // neutral
 ];
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;

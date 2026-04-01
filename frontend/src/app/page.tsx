@@ -294,6 +294,7 @@ export default function Home() {
                 activeCategories={activeCategories}
                 selectedLayer={selectedLayer}
                 onSelectLayer={setSelectedLayer}
+                onApplyToCategory={handleApplyToCategory}
               />
             </>
           ) : (

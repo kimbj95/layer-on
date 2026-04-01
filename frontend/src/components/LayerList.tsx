@@ -11,6 +11,7 @@ interface LayerListProps {
   activeCategories: Set<string>;
   selectedLayer: string | null;
   onSelectLayer: (layerName: string) => void;
+  onApplyToCategory: (categoryMajor: string, color: string) => void;
 }
 
 function matchesQuery(layer: LayerInfo, q: string): boolean {
@@ -23,12 +24,21 @@ function matchesQuery(layer: LayerInfo, q: string): boolean {
   );
 }
 
+const GROUP_COLOR_PRESETS = [
+  "#FF6B6B", "#FF9F9F", "#FD79A8",
+  "#E17055", "#FF9F43", "#FFD32A",
+  "#55EFC4", "#00CEC9", "#4D9FFF",
+  "#A29BFE", "#6C5CE7",
+  "#B2BEC3", "#636E72", "#000000", "#FFFFFF",
+];
+
 export default function LayerList({
   session,
   query,
   activeCategories,
   selectedLayer,
   onSelectLayer,
+  onApplyToCategory,
 }: LayerListProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
@@ -98,6 +108,7 @@ export default function LayerList({
               label={`${key} · ${group.category_major_name}`}
               count={group.count}
               onClick={() => toggleGroup(key)}
+              onApplyColor={(color) => onApplyToCategory(key, color)}
             />
             {!isCollapsed &&
               group.layers.map((layer) => (
@@ -154,6 +165,7 @@ function GroupHeader({
   count,
   onClick,
   warning,
+  onApplyColor,
 }: {
   arrow: string;
   dotColor: string;
@@ -161,18 +173,22 @@ function GroupHeader({
   count: number;
   onClick: () => void;
   warning?: boolean;
+  onApplyColor?: (color: string) => void;
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+
   return (
     <div
-      onClick={onClick}
-      className="flex items-center gap-2 cursor-pointer select-none"
-      style={{ padding: "6px 14px" }}
+      className="flex items-center gap-2 select-none"
+      style={{ padding: "6px 14px", position: "relative" }}
       onMouseEnter={(e) =>
         (e.currentTarget.style.background = "var(--bg-hover)")
       }
       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
     >
       <span
+        onClick={onClick}
+        className="cursor-pointer"
         style={{
           fontSize: 10,
           color: "var(--text-dim)",
@@ -183,7 +199,8 @@ function GroupHeader({
         {arrow}
       </span>
       <span
-        className="shrink-0"
+        onClick={onClick}
+        className="shrink-0 cursor-pointer"
         style={{
           width: 10,
           height: 10,
@@ -192,7 +209,8 @@ function GroupHeader({
         }}
       />
       <span
-        className="flex-1 font-medium"
+        onClick={onClick}
+        className="flex-1 font-medium cursor-pointer"
         style={{
           fontSize: 12,
           color: warning ? "#b8860b" : "var(--text-label)",
@@ -211,6 +229,64 @@ function GroupHeader({
       >
         {count}개
       </span>
+      {onApplyColor && (
+        <>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setPickerOpen(!pickerOpen);
+            }}
+            className="cursor-pointer shrink-0"
+            style={{
+              borderRadius: 4,
+              border: "0.5px solid var(--border-interactive)",
+              background: "var(--btn-bg)",
+              color: "var(--text-dim)",
+              fontSize: 10,
+              padding: "2px 6px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            전체 색상
+          </button>
+          {pickerOpen && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: "absolute",
+                top: "100%",
+                right: 14,
+                zIndex: 20,
+                background: "var(--bg-panel)",
+                border: "0.5px solid var(--border)",
+                borderRadius: 8,
+                padding: 8,
+                display: "grid",
+                gridTemplateColumns: "repeat(5, 1fr)",
+                gap: 4,
+              }}
+            >
+              {GROUP_COLOR_PRESETS.map((color) => (
+                <button
+                  key={color}
+                  onClick={() => {
+                    onApplyColor(color);
+                    setPickerOpen(false);
+                  }}
+                  className="cursor-pointer"
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 4,
+                    background: color,
+                    border: "0.5px solid rgba(255,255,255,0.15)",
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
