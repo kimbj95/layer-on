@@ -1,0 +1,24 @@
+# OS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.venv/
+.env
+
+# Node
+node_modules/
+.next/
+.vercel
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Test
+.pytest_cache/
+coverage/

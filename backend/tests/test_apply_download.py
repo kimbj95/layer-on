@@ -1,0 +1,170 @@
+import json
+import shutil
+
+import ezdxf
+import pytest
+from fastapi.testclient import TestClient
+
+from app.main import app
+from app.routers.upload import SESSIONS_DIR
+
+
+@pytest.fixture
+def client():
+    return TestClient(app)
+
+
+@pytest.fixture
+def sample_dxf(tmp_path):
+    """Create a DXF with known layers."""
+    doc = ezdxf.new("R2018")
+    doc.layers.add("A0013111", color=1)   # 고속국도 — mapped
+    doc.layers.add("B0014110", color=2)   # 건물 — mapped
+    doc.layers.add("E0022110", color=5)   # 수계 — mapped
+    doc.layers.add("XYZLAYER", color=7)   # unknown — unmapped
+    path = tmp_path / "test.dxf"
+    doc.saveas(str(path))
+    return path
+
+
+@pytest.fixture
+def uploaded_session(client, sample_dxf):
+    """Upload a DXF and return the session data."""
+    with open(sample_dxf, "rb") as f:
+        resp = client.post(
+            "/api/upload",
+            files={"file": ("test.dxf", f, "application/octet-stream")},
+        )
+    assert resp.status_code == 200
+    return resp.json()
+
+
+@pytest.fixture(autouse=True)
+def cleanup():
+    yield
+    if SESSIONS_DIR.exists():
+        shutil.rmtree(SESSIONS_DIR, ignore_errors=True)
+
+
+class TestApplyDefaults:
+    def test_apply_no_overrides(self, client, uploaded_session):
+        sid = uploaded_session["session_id"]
+        resp = client.post(f"/api/session/{sid}/apply", json={"layer_overrides": {}})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "ok"
+        assert data["output_filename"] == "layeron_test.dxf"
+
+    def test_output_file_created(self, client, uploaded_session):
+        sid = uploaded_session["session_id"]
+        client.post(f"/api/session/{sid}/apply", json={"layer_overrides": {}})
+        assert (SESSIONS_DIR / sid / "output.dxf").exists()
+
+    def test_state_updated_with_has_output(self, client, uploaded_session):
+        sid = uploaded_session["session_id"]
+        client.post(f"/api/session/{sid}/apply", json={"layer_overrides": {}})
+        state = json.loads((SESSIONS_DIR / sid / "state.json").read_text())
+        assert state["has_output"] is True
+
+    def test_rgb_applied_to_layers(self, client, uploaded_session):
+        sid = uploaded_session["session_id"]
+        client.post(f"/api/session/{sid}/apply", json={"layer_overrides": {}})
+        doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
+        highway = doc.layers.get("A0013111")
+        assert highway.rgb is not None
+
+    def test_description_set(self, client, uploaded_session):
+        sid = uploaded_session["session_id"]
+        client.post(f"/api/session/{sid}/apply", json={"layer_overrides": {}})
+        doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
+        highway = doc.layers.get("A0013111")
+        assert highway.description != ""
+
+
+class TestApplyOverrides:
+    def test_override_color(self, client, uploaded_session):
+        sid = uploaded_session["session_id"]
+        resp = client.post(
+            f"/api/session/{sid}/apply",
+            json={
+                "layer_overrides": {
+                    "A0013111": {"color": "#00FF00"}
+                }
+            },
+        )
+        assert resp.status_code == 200
+        doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
+        highway = doc.layers.get("A0013111")
+        assert highway.rgb == (0, 255, 0)
+
+    def test_override_partial(self, client, uploaded_session):
+        """Override only color, linetype should use mapper default."""
+        sid = uploaded_session["session_id"]
+        resp = client.post(
+            f"/api/session/{sid}/apply",
+            json={
+                "layer_overrides": {
+                    "B0014110": {"color": "#AABBCC"}
+                }
+            },
+        )
+        assert resp.status_code == 200
+        doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
+        building = doc.layers.get("B0014110")
+        assert building.rgb == (170, 187, 204)
+
+    def test_non_overridden_layers_get_defaults(self, client, uploaded_session):
+        sid = uploaded_session["session_id"]
+        client.post(
+            f"/api/session/{sid}/apply",
+            json={"layer_overrides": {"A0013111": {"color": "#00FF00"}}},
+        )
+        doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
+        # B0014110 should still get its default color (#FFD32A)
+        building = doc.layers.get("B0014110")
+        assert building.rgb == (255, 211, 42)
+
+
+class TestApplyErrors:
+    def test_apply_nonexistent_session(self, client):
+        resp = client.post(
+            "/api/session/nonexistent/apply",
+            json={"layer_overrides": {}},
+        )
+        assert resp.status_code == 404
+
+    def test_apply_twice_overwrites(self, client, uploaded_session):
+        """Applying twice should work — second apply starts from input.dxf."""
+        sid = uploaded_session["session_id"]
+        client.post(
+            f"/api/session/{sid}/apply",
+            json={"layer_overrides": {"A0013111": {"color": "#FF0000"}}},
+        )
+        client.post(
+            f"/api/session/{sid}/apply",
+            json={"layer_overrides": {"A0013111": {"color": "#0000FF"}}},
+        )
+        doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
+        highway = doc.layers.get("A0013111")
+        assert highway.rgb == (0, 0, 255)
+
+
+class TestDownload:
+    def test_download_after_apply(self, client, uploaded_session):
+        sid = uploaded_session["session_id"]
+        client.post(f"/api/session/{sid}/apply", json={"layer_overrides": {}})
+        resp = client.get(f"/api/session/{sid}/download")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/dxf"
+        assert "layeron_test.dxf" in resp.headers["content-disposition"]
+        assert len(resp.content) > 0
+
+    def test_download_before_apply(self, client, uploaded_session):
+        sid = uploaded_session["session_id"]
+        resp = client.get(f"/api/session/{sid}/download")
+        assert resp.status_code == 404
+        assert "적용" in resp.json()["detail"]
+
+    def test_download_nonexistent_session(self, client):
+        resp = client.get("/api/session/nonexistent/download")
+        assert resp.status_code == 404
