@@ -265,8 +265,6 @@ export default function Home() {
         dirty={dirty}
         saving={saving}
         hasSession={!!session}
-        originalFormat={session?.original_format ?? null}
-        converterAvailable={session?.converter_available ?? false}
         onSave={(fmt) => handleSave(fmt)}
         onResetAll={handleResetAll}
       />

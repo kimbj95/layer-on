@@ -6,8 +6,6 @@ interface TopBarProps {
   dirty: boolean;
   saving: boolean;
   hasSession: boolean;
-  originalFormat: "dxf" | "dwg" | null;
-  converterAvailable: boolean;
   onSave: (format: "dxf" | "dwg") => void;
   onResetAll: () => void;
 }
@@ -16,13 +14,10 @@ export default function TopBar({
   dirty,
   saving,
   hasSession,
-  originalFormat,
-  converterAvailable,
   onSave,
   onResetAll,
 }: TopBarProps) {
   const saveEnabled = hasSession && !saving;
-  const defaultFormat = originalFormat ?? "dxf";
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -74,30 +69,25 @@ export default function TopBar({
             {/* Main save button */}
             <button
               disabled={!saveEnabled}
-              onClick={() => onSave(defaultFormat)}
+              onClick={() => setMenuOpen((v) => !v)}
               className="cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
               style={{
                 fontSize: 12,
                 padding: "5px 12px",
-                borderRadius: converterAvailable ? "6px 0 0 6px" : 6,
+                borderRadius: 6,
                 border: `0.5px solid ${saveEnabled ? "var(--accent-blue)" : "var(--border-interactive)"}`,
-                borderRight: converterAvailable ? "none" : undefined,
                 background: saveEnabled ? "var(--accent-blue)" : "var(--btn-bg)",
                 color: saveEnabled ? "#fff" : "var(--text-label)",
                 position: "relative",
               }}
             >
-              {saving
-                ? "적용 중..."
-                : hasSession
-                  ? `${defaultFormat.toUpperCase()} 저장`
-                  : "저장"}
+              {saving ? "적용 중..." : "저장"}
               {dirty && !saving && (
                 <span
                   style={{
                     position: "absolute",
                     top: -2,
-                    right: converterAvailable ? -1 : -2,
+                    right: -2,
                     width: 7,
                     height: 7,
                     borderRadius: "50%",
@@ -107,24 +97,6 @@ export default function TopBar({
                 />
               )}
             </button>
-            {/* Dropdown toggle */}
-            {converterAvailable && hasSession && (
-              <button
-                disabled={!saveEnabled}
-                onClick={() => setMenuOpen((v) => !v)}
-                className="cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-                style={{
-                  fontSize: 10,
-                  padding: "5px 6px",
-                  borderRadius: "0 6px 6px 0",
-                  border: `0.5px solid ${saveEnabled ? "var(--accent-blue)" : "var(--border-interactive)"}`,
-                  background: saveEnabled ? "var(--accent-blue)" : "var(--btn-bg)",
-                  color: saveEnabled ? "#fff" : "var(--text-label)",
-                }}
-              >
-                ▾
-              </button>
-            )}
           </div>
           {/* Dropdown menu */}
           {menuOpen && (
@@ -157,10 +129,7 @@ export default function TopBar({
                     fontSize: 12,
                     padding: "7px 12px",
                     border: "none",
-                    background:
-                      fmt === defaultFormat
-                        ? "rgba(96,165,250,0.15)"
-                        : "transparent",
+                    background: "transparent",
                     color: "var(--text-primary)",
                   }}
                   onMouseEnter={(e) =>
@@ -168,24 +137,10 @@ export default function TopBar({
                       "rgba(96,165,250,0.25)")
                   }
                   onMouseLeave={(e) =>
-                    (e.currentTarget.style.background =
-                      fmt === defaultFormat
-                        ? "rgba(96,165,250,0.15)"
-                        : "transparent")
+                    (e.currentTarget.style.background = "transparent")
                   }
                 >
                   {fmt.toUpperCase()} 저장
-                  {fmt === defaultFormat && (
-                    <span
-                      style={{
-                        marginLeft: 6,
-                        fontSize: 10,
-                        color: "var(--text-dim)",
-                      }}
-                    >
-                      (원본)
-                    </span>
-                  )}
                 </button>
               ))}
             </div>
