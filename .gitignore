@@ -22,3 +22,9 @@ node_modules/
 # Test
 .pytest_cache/
 coverage/
+test-files/
+
+# .NET
+dwg-converter/bin/
+dwg-converter/obj/
+dwg-converter/publish/

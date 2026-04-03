@@ -2,16 +2,18 @@
 
 수치지형도 DXF 파일의 레이어를 국토지리정보원 표준코드표에 따라 자동으로 분류하고, 대분류별 색상을 지정하여 내보내는 웹 도구입니다. 680개 표준코드에 대한 정확 매칭, 접두어 매칭, 카테고리 폴백을 지원하며, 사용자가 색상을 편집한 뒤 DXF로 다운로드할 수 있습니다.
 
-## Why DXF only
+## DWG/DXF Support
 
-DWG 파일을 직접 읽으려면 ODA (Open Design Alliance) SDK가 필요하며, 상용 라이선스 제약이 있습니다. LayerOn은 MIT 라이선스인 [ezdxf](https://github.com/mozman/ezdxf)만 사용하여 라이선스 제약 없이 DXF 파일을 처리합니다. DWG 파일은 AutoCAD에서 "다른 이름으로 저장 > DXF"로 변환하거나, 무료 도구인 ODA File Converter를 사용하면 됩니다.
+DXF 파일은 [ezdxf](https://github.com/mozman/ezdxf) (MIT)로 직접 처리합니다. DWG 파일은 [ACadSharp](https://github.com/DomCR/ACadSharp) (MIT) 기반 .NET CLI 도구로 DXF 변환 후 처리합니다. 두 라이브러리 모두 MIT 라이선스로 ODA SDK 없이 동작합니다.
 
 ## Structure
 
 ```
 layeron/
-  frontend/   → Next.js, TypeScript, Tailwind CSS
-  backend/    → FastAPI, Python 3.11+, ezdxf
+  frontend/       → Next.js, TypeScript, Tailwind CSS
+  backend/        → FastAPI, Python 3.11+, ezdxf
+  dwg-converter/  → .NET 8 console app (ACadSharp), DWG↔DXF
+  Dockerfile      → Multi-stage build (dotnet + python)
 ```
 
 ## Local Development
@@ -38,6 +40,14 @@ npm run dev
 
 Frontend runs on http://localhost:3000.
 
+### DWG Converter (local build)
+
+```bash
+cd dwg-converter
+dotnet publish -c Release -r osx-arm64 --self-contained true /p:PublishSingleFile=true -o ./publish
+./publish/DwgConverter to-dxf input.dwg output.dxf
+```
+
 ### Run tests
 
 ```bash
@@ -55,16 +65,14 @@ npm run build
 
 ### Backend → Railway
 
-- GitHub 연결 후 Root Directory: `backend`
-- Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- GitHub 연결 → root의 Dockerfile을 자동 감지하여 빌드
+- Multi-stage: .NET SDK로 DwgConverter 빌드 → Python 이미지에 복사
 - Environment: `PORT` (Railway 자동 설정)
 
 ### Frontend → Vercel
 
 - GitHub 연결 후 Root Directory: `frontend`
 - Environment: `NEXT_PUBLIC_API_URL` = Railway 배포 URL
-
-순수 Python + Node.js만 사용하므로 Docker 불필요.
 
 ## API Endpoints
 
