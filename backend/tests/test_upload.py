@@ -38,14 +38,13 @@ def cleanup_sessions():
 
 
 class TestUploadValidation:
-    def test_reject_non_dxf(self, client):
+    def test_reject_unsupported_format(self, client):
         resp = client.post(
             "/api/upload",
-            files={"file": ("drawing.dwg", b"fake content", "application/octet-stream")},
+            files={"file": ("drawing.pdf", b"fake content", "application/octet-stream")},
         )
         assert resp.status_code == 400
-        assert "DXF 파일만 지원합니다" in resp.json()["detail"]
-        assert "DWG" in resp.json()["detail"]
+        assert "DXF 또는 DWG" in resp.json()["detail"]
 
     def test_reject_no_extension(self, client):
         resp = client.post(
@@ -65,6 +64,19 @@ class TestUploadValidation:
         assert "50MB" in resp.json()["detail"]
 
 
+class TestDwgUploadValidation:
+    def test_dwg_upload_without_converter(self, client):
+        from unittest.mock import patch
+
+        with patch("app.routers.upload.is_converter_available", return_value=False):
+            resp = client.post(
+                "/api/upload",
+                files={"file": ("test.dwg", b"fake", "application/octet-stream")},
+            )
+        assert resp.status_code == 400
+        assert "변환기" in resp.json()["detail"]
+
+
 class TestUploadSuccess:
     def test_upload_valid_dxf(self, client, sample_dxf):
         with open(sample_dxf, "rb") as f:
@@ -77,6 +89,8 @@ class TestUploadSuccess:
         assert "session_id" in data
         assert data["file_name"] == "sample.dxf"
         assert data["total_layers"] > 0
+        assert data["original_format"] == "dxf"
+        assert "converter_available" in data
         assert isinstance(data["mapped_count"], int)
         assert isinstance(data["categories"], list)
         assert "created_at" in data

@@ -5,6 +5,7 @@ import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 import ezdxf
 from ezdxf.colors import rgb2int
@@ -13,6 +14,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from utils.color_utils import hex_to_rgb
+from utils.dwg_converter import is_converter_available, dwg_to_dxf, dxf_to_dwg
 from utils.layer_mapper import LayerMapper
 
 router = APIRouter(prefix="/api")
@@ -39,7 +41,13 @@ def _sync_parse_dxf(file_path: str) -> list[dict]:
     return layers
 
 
-async def parse_dxf(session_id: str, file_path: str, file_name: str, file_size: int):
+async def parse_dxf(
+    session_id: str,
+    file_path: str,
+    file_name: str,
+    file_size: int,
+    original_format: str = "dxf",
+):
     """Parse DXF and save session state as JSON."""
     try:
         layers = await asyncio.wait_for(
@@ -90,6 +98,8 @@ async def parse_dxf(session_id: str, file_path: str, file_name: str, file_size: 
         "mapped_count": len(mapped),
         "categories": categories,
         "unmapped_layers": unmapped,
+        "original_format": original_format,
+        "converter_available": is_converter_available(),
     }
 
     state_path = SESSIONS_DIR / session_id / "state.json"
@@ -99,12 +109,19 @@ async def parse_dxf(session_id: str, file_path: str, file_name: str, file_size: 
 
 
 @router.post("/upload")
-async def upload_dxf(file: UploadFile):
+async def upload_file(file: UploadFile):
     # Validate extension
-    if not file.filename or not file.filename.lower().endswith(".dxf"):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="DXF 또는 DWG 파일만 지원합니다.")
+
+    ext = Path(file.filename).suffix.lower()
+    if ext not in (".dxf", ".dwg"):
+        raise HTTPException(status_code=400, detail="DXF 또는 DWG 파일만 지원합니다.")
+
+    if ext == ".dwg" and not is_converter_available():
         raise HTTPException(
             status_code=400,
-            detail="DXF 파일만 지원합니다. DWG 파일은 AutoCAD에서 DXF로 내보내기 후 업로드해주세요.",
+            detail="DWG 변환기를 사용할 수 없습니다. DXF 파일로 업로드해주세요.",
         )
 
     # Read content and validate size
@@ -120,11 +137,28 @@ async def upload_dxf(file: UploadFile):
     session_dir = SESSIONS_DIR / session_id
     session_dir.mkdir(parents=True, exist_ok=True)
 
-    file_path = session_dir / "input.dxf"
-    file_path.write_bytes(content)
+    original_format = "dwg" if ext == ".dwg" else "dxf"
+
+    if ext == ".dwg":
+        # Save DWG, convert to DXF
+        dwg_path = session_dir / "input.dwg"
+        dwg_path.write_bytes(content)
+        dxf_path = session_dir / "input.dxf"
+        try:
+            await dwg_to_dxf(str(dwg_path), str(dxf_path))
+        except Exception:
+            raise HTTPException(
+                status_code=422,
+                detail="DWG 파일을 변환할 수 없습니다. 파일이 손상되었거나 지원하지 않는 버전일 수 있습니다.",
+            )
+    else:
+        dxf_path = session_dir / "input.dxf"
+        dxf_path.write_bytes(content)
 
     # Parse and return state
-    state = await parse_dxf(session_id, str(file_path), file.filename, len(content))
+    state = await parse_dxf(
+        session_id, str(dxf_path), file.filename, len(content), original_format
+    )
     return state
 
 
@@ -133,7 +167,9 @@ async def get_session(session_id: str):
     state_path = SESSIONS_DIR / session_id / "state.json"
     if not state_path.exists():
         raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
-    return json.loads(state_path.read_text(encoding="utf-8"))
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["converter_available"] = is_converter_available()
+    return state
 
 
 class LayerOverride(BaseModel):
@@ -143,6 +179,7 @@ class LayerOverride(BaseModel):
 
 class ApplyRequest(BaseModel):
     layer_overrides: dict[str, LayerOverride] = {}
+    output_format: Literal["dxf", "dwg"] = "dxf"
 
 
 def _sync_apply_colors(session_dir: Path, overrides: dict[str, dict]) -> dict:
@@ -222,29 +259,62 @@ async def apply_colors(session_id: str, body: ApplyRequest):
             detail="DXF 파일 처리 중 오류가 발생했습니다.",
         )
 
-    return result
+    # Convert to DWG if requested
+    if body.output_format == "dwg":
+        if not is_converter_available():
+            raise HTTPException(
+                status_code=400,
+                detail="DWG 변환기를 사용할 수 없습니다. DXF로 저장해주세요.",
+            )
+        try:
+            await dxf_to_dwg(
+                str(session_dir / "output.dxf"),
+                str(session_dir / "output.dwg"),
+            )
+        except Exception:
+            raise HTTPException(
+                status_code=422,
+                detail="DWG 변환에 실패했습니다.",
+            )
+
+    # Update state with output format
+    state = json.loads((session_dir / "state.json").read_text(encoding="utf-8"))
+    state["output_format"] = body.output_format
+    stem = Path(state["file_name"]).stem
+    state["output_filename"] = f"layeron_{stem}.{body.output_format}"
+    (session_dir / "state.json").write_text(
+        json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+    return {"status": "ok", "output_filename": state["output_filename"]}
 
 
 @router.get("/session/{session_id}/download")
-async def download_dxf(session_id: str):
+async def download_file(session_id: str):
     session_dir = SESSIONS_DIR / session_id
     if not (session_dir / "state.json").exists():
         raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
 
-    output_path = session_dir / "output.dxf"
-    if not output_path.exists():
-        raise HTTPException(
-            status_code=404,
-            detail="아직 색상이 적용되지 않았습니다. 먼저 '적용' 버튼을 눌러주세요.",
-        )
-
     state = json.loads((session_dir / "state.json").read_text(encoding="utf-8"))
+    output_format = state.get("output_format", "dxf")
+    output_path = session_dir / f"output.{output_format}"
+
+    if not output_path.exists():
+        # Fallback to DXF
+        output_path = session_dir / "output.dxf"
+        if not output_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail="아직 색상이 적용되지 않았습니다. 먼저 '적용' 버튼을 눌러주세요.",
+            )
+
     filename = state.get("output_filename", f"layeron_{state['file_name']}")
+    media_type = "application/dwg" if output_format == "dwg" else "application/dxf"
 
     return FileResponse(
         path=str(output_path),
         filename=filename,
-        media_type="application/dxf",
+        media_type=media_type,
     )
 
 
@@ -264,9 +334,7 @@ def cleanup_old_sessions(max_age_hours: int = 24):
                 if now - created > max_age_hours * 3600:
                     shutil.rmtree(session_dir)
             except (json.JSONDecodeError, KeyError, OSError):
-                # Corrupt session — remove it
                 shutil.rmtree(session_dir, ignore_errors=True)
         else:
-            # No state file — leftover directory, check mtime
             if now - session_dir.stat().st_mtime > max_age_hours * 3600:
                 shutil.rmtree(session_dir, ignore_errors=True)

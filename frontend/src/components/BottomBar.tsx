@@ -26,7 +26,7 @@ export default function BottomBar({ session, dirty }: BottomBarProps) {
               <span style={{ color: "var(--accent-blue)" }}>
                 {session.mapped_count}개 매핑됨
               </span>
-              {" "}· 파싱 완료
+              {" "}· {session.original_format?.toUpperCase() || "DXF"} · 파싱 완료
             </span>
             {dirty && (
               <span className="flex items-center gap-1">

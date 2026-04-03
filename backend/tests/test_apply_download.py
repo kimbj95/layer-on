@@ -168,3 +168,25 @@ class TestDownload:
     def test_download_nonexistent_session(self, client):
         resp = client.get("/api/session/nonexistent/download")
         assert resp.status_code == 404
+
+    def test_download_defaults_to_dxf(self, client, uploaded_session):
+        """Apply without output_format should default to DXF."""
+        sid = uploaded_session["session_id"]
+        client.post(f"/api/session/{sid}/apply", json={"layer_overrides": {}})
+        resp = client.get(f"/api/session/{sid}/download")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/dxf"
+
+
+class TestDwgOutput:
+    def test_apply_dwg_without_converter(self, client, uploaded_session):
+        from unittest.mock import patch
+
+        sid = uploaded_session["session_id"]
+        with patch("app.routers.upload.is_converter_available", return_value=False):
+            resp = client.post(
+                f"/api/session/{sid}/apply",
+                json={"layer_overrides": {}, "output_format": "dwg"},
+            )
+        assert resp.status_code == 400
+        assert "변환기" in resp.json()["detail"]

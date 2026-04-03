@@ -1,7 +1,10 @@
+"use client";
+
 interface TopBarProps {
   dirty: boolean;
   saving: boolean;
   hasSession: boolean;
+  originalFormat: "dxf" | "dwg" | null;
   onSave: () => void;
   onResetAll: () => void;
 }
@@ -10,10 +13,12 @@ export default function TopBar({
   dirty,
   saving,
   hasSession,
+  originalFormat,
   onSave,
   onResetAll,
 }: TopBarProps) {
   const saveEnabled = hasSession && !saving;
+  const formatLabel = originalFormat?.toUpperCase() || "DXF";
 
   return (
     <div
@@ -61,7 +66,11 @@ export default function TopBar({
             position: "relative",
           }}
         >
-          {saving ? "적용 중..." : "DXF 저장"}
+          {saving
+            ? "적용 중..."
+            : hasSession
+              ? `${formatLabel} 저장`
+              : "저장"}
           {dirty && !saving && (
             <span
               style={{

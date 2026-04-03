@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers.upload import cleanup_old_sessions, router as upload_router
+from utils.dwg_converter import is_converter_available
 
 
 @asynccontextmanager
@@ -30,4 +31,4 @@ app.include_router(upload_router)
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "ok"}
+    return {"status": "ok", "converter_available": is_converter_available()}

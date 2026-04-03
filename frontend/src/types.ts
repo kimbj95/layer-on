@@ -32,4 +32,7 @@ export interface SessionState {
   unmapped_layers: LayerInfo[];
   has_output?: boolean;
   output_filename?: string;
+  original_format?: "dxf" | "dwg";
+  output_format?: "dxf" | "dwg";
+  converter_available?: boolean;
 }

@@ -200,40 +200,44 @@ export default function Home() {
     setColorOverrides(new Map());
   }, []);
 
-  const handleSave = useCallback(async () => {
-    if (!session || !baseSession) return;
-    setSaving(true);
-    try {
-      const overrides: Record<string, { color: string }> = {};
-      for (const [name, color] of colorOverrides) {
-        overrides[name] = { color };
-      }
-      await applyColors(baseSession.session_id, overrides);
+  const handleSave = useCallback(
+    async (outputFormat: "dxf" | "dwg" = "dxf") => {
+      if (!session || !baseSession) return;
+      setSaving(true);
+      try {
+        const overrides: Record<string, { color: string }> = {};
+        for (const [name, color] of colorOverrides) {
+          overrides[name] = { color };
+        }
+        await applyColors(baseSession.session_id, overrides, outputFormat);
 
-      const blob = await downloadDxf(baseSession.session_id);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `layeron_${baseSession.file_name}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+        const blob = await downloadDxf(baseSession.session_id);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const baseName = baseSession.file_name.replace(/\.(dxf|dwg)$/i, "");
+        a.download = `layeron_${baseName}.${outputFormat}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
 
-      setColorOverrides(new Map());
-      setBaseSession(session);
-      showToast("다운로드 완료", "success");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "저장 실패";
-      if (msg.includes("fetch") || msg.includes("Failed")) {
-        showToast("서버 연결에 실패했습니다", "error");
-      } else {
-        showToast(msg, "error");
+        setColorOverrides(new Map());
+        setBaseSession(session);
+        showToast("다운로드 완료", "success");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "저장 실패";
+        if (msg.includes("fetch") || msg.includes("Failed")) {
+          showToast("서버 연결에 실패했습니다", "error");
+        } else {
+          showToast(msg, "error");
+        }
+      } finally {
+        setSaving(false);
       }
-    } finally {
-      setSaving(false);
-    }
-  }, [session, baseSession, dirty, colorOverrides, showToast]);
+    },
+    [session, baseSession, colorOverrides, showToast]
+  );
 
   // Cmd/Ctrl+S
   const handleSaveRef = useRef(handleSave);
@@ -261,7 +265,8 @@ export default function Home() {
         dirty={dirty}
         saving={saving}
         hasSession={!!session}
-        onSave={handleSave}
+        originalFormat={session?.original_format ?? null}
+        onSave={() => handleSave(session?.original_format ?? "dxf")}
         onResetAll={handleResetAll}
       />
 
@@ -310,7 +315,7 @@ export default function Home() {
                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
               </svg>
               <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
-                DXF 파일을 업로드하세요
+                DXF / DWG 파일을 업로드하세요
               </p>
               <p style={{ fontSize: 11, color: "var(--text-code)" }}>
                 레이어 코드를 자동으로 분류하고 색상을 지정합니다

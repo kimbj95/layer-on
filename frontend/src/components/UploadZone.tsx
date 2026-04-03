@@ -22,8 +22,9 @@ export default function UploadZone({
     async (file: File) => {
       setInlineError(null);
 
-      if (!file.name.toLowerCase().endsWith(".dxf")) {
-        setInlineError("DXF 파일만 지원합니다");
+      const name = file.name.toLowerCase();
+      if (!name.endsWith(".dxf") && !name.endsWith(".dwg")) {
+        setInlineError("DXF 또는 DWG 파일만 지원합니다");
         return;
       }
 
@@ -95,7 +96,7 @@ export default function UploadZone({
         <input
           ref={inputRef}
           type="file"
-          accept=".dxf"
+          accept=".dxf,.dwg"
           onChange={handleChange}
           className="hidden"
         />
@@ -167,7 +168,7 @@ export default function UploadZone({
                 className="block font-medium"
                 style={{ fontSize: 11, color: "var(--text-label)" }}
               >
-                DXF 파일 업로드
+                DXF / DWG 파일 업로드
               </strong>
               클릭 또는 드래그
             </div>

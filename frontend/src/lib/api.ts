@@ -27,12 +27,16 @@ export async function getSession(sessionId: string): Promise<SessionState> {
 
 export async function applyColors(
   sessionId: string,
-  layerOverrides: Record<string, { color: string }>
+  layerOverrides: Record<string, { color: string }>,
+  outputFormat: "dxf" | "dwg" = "dxf"
 ): Promise<{ status: string; output_filename: string }> {
   const res = await fetch(`${API_BASE}/api/session/${sessionId}/apply`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ layer_overrides: layerOverrides }),
+    body: JSON.stringify({
+      layer_overrides: layerOverrides,
+      output_format: outputFormat,
+    }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: "적용 실패" }));

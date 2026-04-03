@@ -33,8 +33,7 @@ export default function DxfBanner() {
     >
       <span>
         <span style={{ color: "var(--accent-blue)", marginRight: 6 }}>i</span>
-        현재 DXF 파일만 지원합니다. DWG 파일은 AutoCAD에서 &apos;다른 이름으로
-        저장 &gt; DXF&apos;로 변환 후 업로드해주세요.
+        DWG, DXF 파일 모두 지원됩니다. DWG 파일은 자동 변환 후 처리됩니다.
       </span>
       <button
         onClick={dismiss}
