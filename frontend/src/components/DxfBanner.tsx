@@ -33,7 +33,7 @@ export default function DxfBanner() {
     >
       <span>
         <span style={{ color: "var(--accent-blue)", marginRight: 6 }}>i</span>
-        DWG, DXF 파일 모두 지원됩니다. DWG 파일은 자동 변환 후 처리됩니다.
+        DWG, DXF 파일 모두 동일하게 지원됩니다. (레이어 색상 + description)
       </span>
       <button
         onClick={dismiss}

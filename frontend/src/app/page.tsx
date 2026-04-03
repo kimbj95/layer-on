@@ -266,7 +266,8 @@ export default function Home() {
         saving={saving}
         hasSession={!!session}
         originalFormat={session?.original_format ?? null}
-        onSave={() => handleSave(session?.original_format ?? "dxf")}
+        converterAvailable={session?.converter_available ?? false}
+        onSave={(fmt) => handleSave(fmt)}
         onResetAll={handleResetAll}
       />
 

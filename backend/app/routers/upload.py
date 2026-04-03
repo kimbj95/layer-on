@@ -182,10 +182,21 @@ class ApplyRequest(BaseModel):
     output_format: Literal["dxf", "dwg"] = "dxf"
 
 
-def _sync_apply_colors(session_dir: Path, overrides: dict[str, dict]) -> dict:
+def _sync_apply_colors(
+    session_dir: Path, overrides: dict[str, dict], output_format: str = "dxf"
+) -> dict:
     """Synchronous color application — runs in thread pool."""
     state = json.loads((session_dir / "state.json").read_text(encoding="utf-8"))
     doc = ezdxf.readfile(str(session_dir / "input.dxf"))
+
+    # Upgrade to R2010 (AC1024) for two reasons:
+    # 1. true_color (group code 420) requires AC1018+ (R2004)
+    # 2. R2007+ saves strings as UTF-8, which prevents ACadSharp from
+    #    misreading cp949 Korean text as cp1252 during DXF→DWG conversion
+    # R2007 (AC1021) is not supported by ACadSharp, so we use R2010.
+    if doc.dxfversion < "AC1024":
+        doc._dxfversion = "AC1024"
+        doc.header["$ACADVER"] = "AC1024"
 
     for layer in doc.layers:
         layer_name = layer.dxf.name
@@ -201,7 +212,12 @@ def _sync_apply_colors(session_dir: Path, overrides: dict[str, dict]) -> dict:
 
         # Apply true color (RGB) without overriding ACI
         r, g, b = hex_to_rgb(color_hex)
-        layer.dxf.true_color = rgb2int((r, g, b))
+        # ACadSharp has a byte-swap bug: DXF→DWG conversion reverses RGB to BGR.
+        # Pre-swap so ACadSharp's swap produces correct colors in the final DWG.
+        if output_format == "dwg":
+            layer.dxf.true_color = rgb2int((b, g, r))
+        else:
+            layer.dxf.true_color = rgb2int((r, g, b))
 
         # Set description — prefixed by category for AutoCAD sorting
         korean_label = layer_info["name"]
@@ -245,7 +261,7 @@ async def apply_colors(session_id: str, body: ApplyRequest):
 
     try:
         result = await asyncio.wait_for(
-            asyncio.to_thread(_sync_apply_colors, session_dir, overrides),
+            asyncio.to_thread(_sync_apply_colors, session_dir, overrides, body.output_format),
             timeout=PARSE_TIMEOUT,
         )
     except asyncio.TimeoutError:
