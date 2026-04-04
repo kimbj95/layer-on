@@ -2,14 +2,7 @@
 
 import { useState } from "react";
 import type { LayerInfo } from "@/types";
-
-const COLOR_PRESETS = [
-  "#FF6B6B", "#FF9F9F", "#FD79A8",  // red/pink
-  "#E17055", "#FF9F43", "#FFD32A",  // orange/yellow
-  "#55EFC4", "#00CEC9", "#4D9FFF",  // green/cyan/blue
-  "#A29BFE", "#6C5CE7",             // purple
-  "#B2BEC3", "#636E72", "#000000", "#FFFFFF",  // neutral
-];
+import { COLOR_PRESETS } from "@/lib/constants";
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
@@ -38,9 +31,9 @@ export default function ColorEditor({
 
   const handleCategoryApply = () => {
     if (!layer.category_major) return;
-    const count = layer.category_major_name;
+    const categoryName = layer.category_major_name;
     const confirmed = window.confirm(
-      `${layer.category_major} ${count} 카테고리의 모든 레이어에 현재 색상(${layer.current_color})을 적용하시겠습니까?`
+      `${layer.category_major} ${categoryName} 카테고리의 모든 레이어에 현재 색상(${layer.current_color})을 적용하시겠습니까?`
     );
     if (confirmed) {
       onApplyToCategory(layer.category_major, layer.current_color);

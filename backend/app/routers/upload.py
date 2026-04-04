@@ -385,14 +385,6 @@ def _sync_apply_colors(
     output_path = session_dir / "output.dxf"
     doc.saveas(str(output_path))
 
-    state["has_output"] = True
-    state["output_filename"] = f"layeron_{state['file_name']}"
-    (session_dir / "state.json").write_text(
-        json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-
-    return {"status": "ok", "output_filename": state["output_filename"]}
-
 
 @router.post("/session/{session_id}/apply")
 async def apply_colors(session_id: str, body: ApplyRequest):
@@ -403,7 +395,7 @@ async def apply_colors(session_id: str, body: ApplyRequest):
     overrides = {k: v.model_dump(exclude_none=True) for k, v in body.layer_overrides.items()}
 
     try:
-        result = await asyncio.wait_for(
+        await asyncio.wait_for(
             asyncio.to_thread(_sync_apply_colors, session_dir, overrides, body.output_format),
             timeout=PARSE_TIMEOUT,
         )
@@ -436,8 +428,9 @@ async def apply_colors(session_id: str, body: ApplyRequest):
                 detail="DWG 변환에 실패했습니다.",
             )
 
-    # Update state with output format
+    # Update state with output info
     state = json.loads((session_dir / "state.json").read_text(encoding="utf-8"))
+    state["has_output"] = True
     state["output_format"] = body.output_format
     stem = Path(state["file_name"]).stem
     state["output_filename"] = f"layeron_{stem}.{body.output_format}"

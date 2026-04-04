@@ -11,33 +11,17 @@ Validates:
 7. DWG upload → convert → apply → DWG download round-trip
 """
 
-import io
 import json
-import shutil
 from collections import Counter
 from pathlib import Path
 
 import ezdxf
 import pytest
-from fastapi.testclient import TestClient
 
-from app.main import app
 from app.routers.upload import SESSIONS_DIR
 
 SAMPLE_DXF = Path(__file__).resolve().parent.parent.parent / "test-files" / "sample.dxf"
 SAMPLE_DWG = Path(__file__).resolve().parent.parent.parent / "test-files" / "sample.dwg"
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
-
-
-@pytest.fixture(autouse=True)
-def cleanup():
-    yield
-    if SESSIONS_DIR.exists():
-        shutil.rmtree(SESSIONS_DIR, ignore_errors=True)
 
 
 @pytest.fixture

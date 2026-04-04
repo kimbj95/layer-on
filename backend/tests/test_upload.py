@@ -1,25 +1,17 @@
 import json
-import shutil
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
+import ezdxf
 import pytest
-from fastapi.testclient import TestClient
 
-from app.main import app
 from app.routers.upload import SESSIONS_DIR
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
 
 
 @pytest.fixture
 def sample_dxf(tmp_path):
     """Create a minimal valid DXF file using ezdxf."""
-    import ezdxf
     doc = ezdxf.new("R2010")
     doc.layers.add("A0013111", color=1)
     doc.layers.add("B0014110", color=2)
@@ -28,13 +20,6 @@ def sample_dxf(tmp_path):
     path = tmp_path / "test.dxf"
     doc.saveas(str(path))
     return path
-
-
-@pytest.fixture(autouse=True)
-def cleanup_sessions():
-    yield
-    if SESSIONS_DIR.exists():
-        shutil.rmtree(SESSIONS_DIR, ignore_errors=True)
 
 
 class TestUploadValidation:

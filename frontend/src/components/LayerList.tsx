@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { CategoryGroup, LayerInfo, SessionState } from "@/types";
-import { CATEGORY_COLOR_MAP } from "@/lib/constants";
+import { CATEGORY_COLOR_MAP, COLOR_PRESETS } from "@/lib/constants";
 import LinetypePreview from "./LinetypePreview";
 
 interface LayerListProps {
@@ -23,14 +23,6 @@ function matchesQuery(layer: LayerInfo, q: string): boolean {
     layer.category_mid.toLowerCase().includes(lower)
   );
 }
-
-const GROUP_COLOR_PRESETS = [
-  "#FF6B6B", "#FF9F9F", "#FD79A8",
-  "#E17055", "#FF9F43", "#FFD32A",
-  "#55EFC4", "#00CEC9", "#4D9FFF",
-  "#A29BFE", "#6C5CE7",
-  "#B2BEC3", "#636E72", "#000000", "#FFFFFF",
-];
 
 export default function LayerList({
   session,
@@ -266,7 +258,7 @@ function GroupHeader({
                 gap: 4,
               }}
             >
-              {GROUP_COLOR_PRESETS.map((color) => (
+              {COLOR_PRESETS.map((color) => (
                 <button
                   key={color}
                   onClick={() => {

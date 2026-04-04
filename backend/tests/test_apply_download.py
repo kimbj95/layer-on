@@ -1,27 +1,19 @@
 import json
-import shutil
 
 import ezdxf
 import pytest
-from fastapi.testclient import TestClient
 
-from app.main import app
 from app.routers.upload import SESSIONS_DIR
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
 
 
 @pytest.fixture
 def sample_dxf(tmp_path):
     """Create a DXF with known layers."""
     doc = ezdxf.new("R2018")
-    doc.layers.add("A0013111", color=1)   # 고속국도 — mapped
-    doc.layers.add("B0014110", color=2)   # 건물 — mapped
-    doc.layers.add("E0022110", color=5)   # 수계 — mapped
-    doc.layers.add("XYZLAYER", color=7)   # unknown — unmapped
+    doc.layers.add("A0013111", color=1)
+    doc.layers.add("B0014110", color=2)
+    doc.layers.add("E0022110", color=5)
+    doc.layers.add("XYZLAYER", color=7)
     path = tmp_path / "test.dxf"
     doc.saveas(str(path))
     return path
@@ -37,13 +29,6 @@ def uploaded_session(client, sample_dxf):
         )
     assert resp.status_code == 200
     return resp.json()
-
-
-@pytest.fixture(autouse=True)
-def cleanup():
-    yield
-    if SESSIONS_DIR.exists():
-        shutil.rmtree(SESSIONS_DIR, ignore_errors=True)
 
 
 class TestApplyDefaults:

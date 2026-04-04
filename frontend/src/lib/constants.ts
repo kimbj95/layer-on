@@ -12,3 +12,11 @@ export const CATEGORY_META = [
 export const CATEGORY_COLOR_MAP: Record<string, string> = Object.fromEntries(
   CATEGORY_META.map((c) => [c.letter, c.color])
 );
+
+export const COLOR_PRESETS = [
+  "#FF6B6B", "#FF9F9F", "#FD79A8",
+  "#E17055", "#FF9F43", "#FFD32A",
+  "#55EFC4", "#00CEC9", "#4D9FFF",
+  "#A29BFE", "#6C5CE7",
+  "#B2BEC3", "#636E72", "#000000", "#FFFFFF",
+];
