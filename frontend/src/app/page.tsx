@@ -1,13 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { LayerInfo, SessionState } from "@/types";
-import { applyColors, downloadDxf } from "@/lib/api";
+import type { GeometryData, LayerInfo, SessionState } from "@/types";
+import { applyColors, downloadDxf, getGeometry } from "@/lib/api";
 import TopBar from "@/components/TopBar";
 import Sidebar from "@/components/Sidebar";
 import BottomBar from "@/components/BottomBar";
 import SearchBar from "@/components/SearchBar";
 import LayerList from "@/components/LayerList";
+import MapPreview from "@/components/MapPreview";
+import SplitPane from "@/components/SplitPane";
 import DxfBanner from "@/components/DxfBanner";
 
 // ── helpers ──────────────────────────────────────
@@ -64,6 +66,9 @@ export default function Home() {
   );
   const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [geometryData, setGeometryData] = useState<GeometryData | null>(null);
+  const [geometryLoading, setGeometryLoading] = useState(false);
+  const [geometryError, setGeometryError] = useState<string | null>(null);
 
   const session = useMemo(
     () =>
@@ -95,6 +100,16 @@ export default function Home() {
     return counts;
   }, [session]);
 
+  const layerColors = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!session) return map;
+    for (const cat of session.categories) {
+      for (const l of cat.layers) map.set(l.original_name, l.current_color);
+    }
+    for (const l of session.unmapped_layers) map.set(l.original_name, l.current_color);
+    return map;
+  }, [session]);
+
   // ── toast helper ───────────────────────────────
 
   const showToast = useCallback((message: string, type: "error" | "success") => {
@@ -111,6 +126,15 @@ export default function Home() {
     setQuery("");
     setActiveCategories(new Set());
     setSelectedLayer(null);
+
+    // Fetch geometry in background
+    setGeometryData(null);
+    setGeometryError(null);
+    setGeometryLoading(true);
+    getGeometry(data.session_id)
+      .then(setGeometryData)
+      .catch(() => setGeometryError("미리보기를 불러올 수 없습니다"))
+      .finally(() => setGeometryLoading(false));
   }, []);
 
   const handleError = useCallback(
@@ -127,6 +151,8 @@ export default function Home() {
     setQuery("");
     setActiveCategories(new Set());
     setSelectedLayer(null);
+    setGeometryData(null);
+    setGeometryError(null);
   }, []);
 
   const handleToggleCategory = useCallback((cat: string) => {
@@ -281,49 +307,60 @@ export default function Home() {
           onResetToDefault={handleResetToDefault}
         />
 
-        <div className="flex flex-col flex-1 overflow-hidden">
-          {session ? (
-            <>
-              <SearchBar
-                query={query}
-                onQueryChange={setQuery}
-                activeCategories={activeCategories}
-                onToggleCategory={handleToggleCategory}
-                totalCount={session.total_layers}
-                categoryCounts={categoryCounts}
-              />
-              <LayerList
-                session={session}
-                query={query}
-                activeCategories={activeCategories}
-                selectedLayer={selectedLayer}
-                onSelectLayer={setSelectedLayer}
-                onApplyToCategory={handleApplyToCategory}
-              />
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center gap-3">
-              <svg
-                width="40"
-                height="40"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="var(--text-code)"
-                strokeWidth="1"
-              >
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
-              </svg>
-              <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
-                DXF / DWG 파일을 업로드하세요
-              </p>
-              <p style={{ fontSize: 11, color: "var(--text-code)" }}>
-                레이어 코드를 자동으로 분류하고 색상을 지정합니다
-              </p>
+        <SplitPane
+          left={
+            <div className="flex flex-col flex-1 overflow-hidden">
+              {session ? (
+                <>
+                  <SearchBar
+                    query={query}
+                    onQueryChange={setQuery}
+                    activeCategories={activeCategories}
+                    onToggleCategory={handleToggleCategory}
+                    totalCount={session.total_layers}
+                    categoryCounts={categoryCounts}
+                  />
+                  <LayerList
+                    session={session}
+                    query={query}
+                    activeCategories={activeCategories}
+                    selectedLayer={selectedLayer}
+                    onSelectLayer={setSelectedLayer}
+                    onApplyToCategory={handleApplyToCategory}
+                  />
+                </>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center gap-3">
+                  <svg
+                    width="40"
+                    height="40"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="var(--text-code)"
+                    strokeWidth="1"
+                  >
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+                  </svg>
+                  <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
+                    DXF / DWG 파일을 업로드하세요
+                  </p>
+                  <p style={{ fontSize: 11, color: "var(--text-code)" }}>
+                    레이어 코드를 자동으로 분류하고 색상을 지정합니다
+                  </p>
+                </div>
+              )}
+              <BottomBar session={session} dirty={dirty} />
             </div>
-          )}
-
-          <BottomBar session={session} dirty={dirty} />
-        </div>
+          }
+          right={
+            <MapPreview
+              geometry={geometryData}
+              layerColors={layerColors}
+              loading={geometryLoading}
+              error={geometryError}
+            />
+          }
+        />
       </div>
 
       {/* Toast notification */}

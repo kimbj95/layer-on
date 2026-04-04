@@ -36,3 +36,24 @@ export interface SessionState {
   output_format?: "dxf" | "dwg";
   converter_available?: boolean;
 }
+
+export type GeometryEntity =
+  | { type: "line"; layer: string; points: number[][] }
+  | { type: "polyline"; layer: string; points: number[][]; closed: boolean }
+  | { type: "circle"; layer: string; center: number[]; radius: number }
+  | {
+      type: "arc";
+      layer: string;
+      center: number[];
+      radius: number;
+      start_angle: number;
+      end_angle: number;
+    }
+  | { type: "point"; layer: string; position: number[] };
+
+export interface GeometryData {
+  bounds: { min_x: number; min_y: number; max_x: number; max_y: number };
+  entities: GeometryEntity[];
+  truncated?: boolean;
+  total_entities?: number;
+}

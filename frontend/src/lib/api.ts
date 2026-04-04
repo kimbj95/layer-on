@@ -1,4 +1,4 @@
-import type { SessionState } from "@/types";
+import type { GeometryData, SessionState } from "@/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -81,6 +81,17 @@ export async function uploadDxfStream(
       }
     }
   }
+}
+
+export async function getGeometry(
+  sessionId: string,
+): Promise<GeometryData> {
+  const res = await fetch(`${API_BASE}/api/session/${sessionId}/geometry`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "지오메트리 조회 실패" }));
+    throw new Error(err.detail);
+  }
+  return res.json();
 }
 
 export async function getSession(sessionId: string): Promise<SessionState> {

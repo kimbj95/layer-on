@@ -12,7 +12,6 @@ interface UploadZoneProps {
 
 const STEPS = [
   { key: "uploading", label: "파일 업로드" },
-  { key: "converting", label: "DWG → DXF 변환" },
   { key: "parsing", label: "레이어 분석" },
   { key: "mapping", label: "표준코드 매핑" },
   { key: "finalizing", label: "마무리" },
@@ -37,7 +36,6 @@ export default function UploadZone({
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [complete, setComplete] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const fileExtRef = useRef<string>("dxf");
   const fileSizeRef = useRef<number>(0);
 
   const handleFile = useCallback(
@@ -55,7 +53,6 @@ export default function UploadZone({
         return;
       }
 
-      fileExtRef.current = name.endsWith(".dwg") ? "dwg" : "dxf";
       fileSizeRef.current = file.size;
       setUploading(true);
       setProgress(null);
@@ -109,9 +106,7 @@ export default function UploadZone({
     [handleFile],
   );
 
-  const visibleSteps = STEPS.filter(
-    (s) => s.key !== "converting" || fileExtRef.current === "dwg",
-  );
+  const visibleSteps = STEPS;
 
   const currentStepIndex = progress
     ? visibleSteps.findIndex((s) => s.key === progress.step)

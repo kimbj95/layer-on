@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.routers.geometry import router as geometry_router
 from app.routers.upload import cleanup_old_sessions, router as upload_router
 from utils.dwg_converter import is_converter_available
 
@@ -27,6 +28,7 @@ app.add_middleware(
 )
 
 app.include_router(upload_router)
+app.include_router(geometry_router)
 
 
 @app.get("/api/health")
