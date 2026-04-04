@@ -16,6 +16,73 @@ export async function uploadDxf(file: File): Promise<SessionState> {
   return res.json();
 }
 
+export interface UploadProgress {
+  step: "uploading" | "converting" | "parsing" | "mapping" | "finalizing";
+  message: string;
+  percent: number;
+}
+
+export async function uploadDxfStream(
+  file: File,
+  onProgress: (p: UploadProgress) => void,
+  onComplete: (state: SessionState) => void,
+  onError: (msg: string) => void,
+): Promise<void> {
+  const form = new FormData();
+  form.append("file", file);
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api/upload-stream`, {
+      method: "POST",
+      body: form,
+    });
+  } catch {
+    onError("서버 연결에 실패했습니다");
+    return;
+  }
+
+  if (!res.body) {
+    onError("서버 응답을 읽을 수 없습니다");
+    return;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() ?? "";
+
+    for (const part of parts) {
+      const lines = part.trim().split("\n");
+      let eventType = "";
+      let data = "";
+
+      for (const line of lines) {
+        if (line.startsWith("event: ")) eventType = line.slice(7);
+        else if (line.startsWith("data: ")) data = line.slice(6);
+      }
+
+      if (!eventType || !data) continue;
+
+      try {
+        const parsed = JSON.parse(data);
+        if (eventType === "progress") onProgress(parsed as UploadProgress);
+        else if (eventType === "complete") onComplete(parsed as SessionState);
+        else if (eventType === "error") onError(parsed.message || "업로드 실패");
+      } catch {
+        onError("서버 응답 파싱 실패");
+      }
+    }
+  }
+}
+
 export async function getSession(sessionId: string): Promise<SessionState> {
   const res = await fetch(`${API_BASE}/api/session/${sessionId}`);
   if (!res.ok) {

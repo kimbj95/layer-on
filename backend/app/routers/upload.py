@@ -5,12 +5,12 @@ import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
+from typing import AsyncGenerator, Literal
 
 import ezdxf
 from ezdxf.colors import rgb2int
 from fastapi import APIRouter, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from utils.color_utils import hex_to_rgb
@@ -26,50 +26,44 @@ PARSE_TIMEOUT = 60  # seconds
 mapper = LayerMapper()
 
 
-def _sync_parse_dxf(file_path: str) -> list[dict]:
-    """Synchronous ezdxf parsing — runs in thread pool."""
+def _sse_event(event: str, data: dict) -> str:
+    """Format a single SSE event string."""
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+def _sync_read_dxf(file_path: str) -> list[dict]:
+    """Read DXF and extract raw layer data (name + ACI color)."""
     doc = ezdxf.readfile(file_path)
+    return [{"name": layer.dxf.name, "aci_color": layer.color} for layer in doc.layers]
+
+
+def _sync_map_layers(raw_layers: list[dict]) -> list[dict]:
+    """Map raw layers to standard layer info via LayerMapper."""
     layers = []
-    for layer in doc.layers:
-        layer_info = mapper.get_layer_info(layer.dxf.name)
+    for raw in raw_layers:
+        info = mapper.get_layer_info(raw["name"])
         layers.append({
-            "original_name": layer.dxf.name,
-            **layer_info,
-            "current_color": layer_info["default_color"],
-            "original_aci_color": layer.color,
+            "original_name": raw["name"],
+            **info,
+            "current_color": info["default_color"],
+            "original_aci_color": raw["aci_color"],
         })
     return layers
 
 
-async def parse_dxf(
+def _sync_parse_dxf(file_path: str) -> list[dict]:
+    """Synchronous ezdxf parsing — runs in thread pool."""
+    return _sync_map_layers(_sync_read_dxf(file_path))
+
+
+def _build_session_state(
     session_id: str,
-    file_path: str,
     file_name: str,
     file_size: int,
+    layers: list[dict],
     original_format: str = "dxf",
-):
-    """Parse DXF and save session state as JSON."""
-    try:
-        layers = await asyncio.wait_for(
-            asyncio.to_thread(_sync_parse_dxf, file_path),
-            timeout=PARSE_TIMEOUT,
-        )
-    except asyncio.TimeoutError:
-        raise HTTPException(
-            status_code=408,
-            detail="파일 파싱 시간이 초과되었습니다. 더 작은 파일로 시도해주세요.",
-        )
-    except ezdxf.DXFError:
-        raise HTTPException(
-            status_code=422,
-            detail="DXF 파일을 읽을 수 없습니다. 파일이 손상되었거나 지원하지 않는 버전일 수 있습니다.",
-        )
-    except Exception:
-        raise HTTPException(
-            status_code=422,
-            detail="DXF 파일을 읽을 수 없습니다. 파일이 손상되었거나 지원하지 않는 버전일 수 있습니다.",
-        )
-
+) -> dict:
+    """Build session state from parsed layers and persist to disk."""
     mapped = [l for l in layers if l["is_mapped"]]
     unmapped = [l for l in layers if not l["is_mapped"]]
 
@@ -106,6 +100,38 @@ async def parse_dxf(
     state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
 
     return state
+
+
+async def parse_dxf(
+    session_id: str,
+    file_path: str,
+    file_name: str,
+    file_size: int,
+    original_format: str = "dxf",
+):
+    """Parse DXF and save session state as JSON."""
+    try:
+        layers = await asyncio.wait_for(
+            asyncio.to_thread(_sync_parse_dxf, file_path),
+            timeout=PARSE_TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=408,
+            detail="파일 파싱 시간이 초과되었습니다. 더 작은 파일로 시도해주세요.",
+        )
+    except ezdxf.DXFError:
+        raise HTTPException(
+            status_code=422,
+            detail="DXF 파일을 읽을 수 없습니다. 파일이 손상되었거나 지원하지 않는 버전일 수 있습니다.",
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=422,
+            detail="DXF 파일을 읽을 수 없습니다. 파일이 손상되었거나 지원하지 않는 버전일 수 있습니다.",
+        )
+
+    return _build_session_state(session_id, file_name, file_size, layers, original_format)
 
 
 @router.post("/upload")
@@ -160,6 +186,123 @@ async def upload_file(file: UploadFile):
         session_id, str(dxf_path), file.filename, len(content), original_format
     )
     return state
+
+
+@router.post("/upload-stream")
+async def upload_file_stream(file: UploadFile):
+    """Same as /upload but returns SSE progress events."""
+
+    # --- Validation (before entering stream) ---
+    if not file.filename:
+        return StreamingResponse(
+            _error_stream("DXF 또는 DWG 파일만 지원합니다."),
+            media_type="text/event-stream",
+        )
+
+    ext = Path(file.filename).suffix.lower()
+    if ext not in (".dxf", ".dwg"):
+        return StreamingResponse(
+            _error_stream("DXF 또는 DWG 파일만 지원합니다."),
+            media_type="text/event-stream",
+        )
+
+    if ext == ".dwg" and not is_converter_available():
+        return StreamingResponse(
+            _error_stream("DWG 변환기를 사용할 수 없습니다. DXF 파일로 업로드해주세요."),
+            media_type="text/event-stream",
+        )
+
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        return StreamingResponse(
+            _error_stream("파일 크기는 50MB 이하만 지원합니다"),
+            media_type="text/event-stream",
+        )
+
+    filename = file.filename
+
+    async def generate() -> AsyncGenerator[str, None]:
+        try:
+            # Step 1: uploading
+            yield _sse_event("progress", {
+                "step": "uploading", "message": "파일 업로드 중...", "percent": 10,
+            })
+
+            session_id = str(uuid.uuid4())
+            session_dir = SESSIONS_DIR / session_id
+            session_dir.mkdir(parents=True, exist_ok=True)
+            original_format = "dwg" if ext == ".dwg" else "dxf"
+
+            if ext == ".dwg":
+                dwg_path = session_dir / "input.dwg"
+                dwg_path.write_bytes(content)
+                dxf_path = session_dir / "input.dxf"
+
+                # Step 2: converting (DWG only)
+                yield _sse_event("progress", {
+                    "step": "converting", "message": "DWG → DXF 변환 중...", "percent": 30,
+                })
+                try:
+                    await dwg_to_dxf(str(dwg_path), str(dxf_path))
+                except Exception:
+                    yield _sse_event("error", {
+                        "message": "DWG 파일을 변환할 수 없습니다. 파일이 손상되었거나 지원하지 않는 버전일 수 있습니다.",
+                    })
+                    return
+            else:
+                dxf_path = session_dir / "input.dxf"
+                dxf_path.write_bytes(content)
+
+            # Step 3: parsing
+            yield _sse_event("progress", {
+                "step": "parsing", "message": "레이어 분석 중...", "percent": 50,
+            })
+            try:
+                raw_layers = await asyncio.wait_for(
+                    asyncio.to_thread(_sync_read_dxf, str(dxf_path)),
+                    timeout=PARSE_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                yield _sse_event("error", {
+                    "message": "파일 파싱 시간이 초과되었습니다.",
+                })
+                return
+            except Exception:
+                yield _sse_event("error", {
+                    "message": "DXF 파일을 읽을 수 없습니다. 파일이 손상되었거나 지원하지 않는 버전일 수 있습니다.",
+                })
+                return
+
+            # Step 4: mapping
+            yield _sse_event("progress", {
+                "step": "mapping", "message": "표준코드 매핑 중...", "percent": 75,
+            })
+            layers = await asyncio.to_thread(_sync_map_layers, raw_layers)
+
+            # Step 5: finalizing
+            yield _sse_event("progress", {
+                "step": "finalizing", "message": "마무리 중...", "percent": 90,
+            })
+            state = _build_session_state(
+                session_id, filename, len(content), layers, original_format,
+            )
+
+            # Done
+            yield _sse_event("complete", state)
+
+        except Exception:
+            yield _sse_event("error", {"message": "파일 처리 중 오류가 발생했습니다."})
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+async def _error_stream(message: str) -> AsyncGenerator[str, None]:
+    """Yield a single SSE error event for early validation failures."""
+    yield _sse_event("error", {"message": message})
 
 
 @router.get("/session/{session_id}")

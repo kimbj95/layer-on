@@ -1,12 +1,30 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { uploadDxf } from "@/lib/api";
+import { uploadDxfStream } from "@/lib/api";
+import type { UploadProgress } from "@/lib/api";
 import type { SessionState } from "@/types";
 
 interface UploadZoneProps {
   onUploadComplete: (data: SessionState) => void;
   onError: (message: string) => void;
+}
+
+const STEPS = [
+  { key: "uploading", label: "파일 업로드" },
+  { key: "converting", label: "DWG → DXF 변환" },
+  { key: "parsing", label: "레이어 분석" },
+  { key: "mapping", label: "표준코드 매핑" },
+  { key: "finalizing", label: "마무리" },
+] as const;
+
+function getTimeEstimate(sizeBytes: number): string {
+  const mb = sizeBytes / (1024 * 1024);
+  if (mb < 5) return "예상 소요시간: ~5초";
+  if (mb < 15) return "예상 소요시간: ~15초";
+  if (mb < 30) return "예상 소요시간: ~30초";
+  if (mb < 50) return "예상 소요시간: ~1분";
+  return "예상 소요시간: ~2분";
 }
 
 export default function UploadZone({
@@ -16,7 +34,11 @@ export default function UploadZone({
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [inlineError, setInlineError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
+  const [complete, setComplete] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileExtRef = useRef<string>("dxf");
+  const fileSizeRef = useRef<number>(0);
 
   const handleFile = useCallback(
     async (file: File) => {
@@ -33,24 +55,39 @@ export default function UploadZone({
         return;
       }
 
+      fileExtRef.current = name.endsWith(".dwg") ? "dwg" : "dxf";
+      fileSizeRef.current = file.size;
       setUploading(true);
+      setProgress(null);
+      setComplete(false);
+
       try {
-        const data = await uploadDxf(file);
-        onUploadComplete(data);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "업로드 실패";
-        if (message.includes("fetch") || message.includes("Failed")) {
-          onError("서버 연결에 실패했습니다");
-        } else if (message.includes("시간")) {
-          onError("파일 처리 시간이 초과되었습니다");
-        } else {
-          onError(message);
-        }
-      } finally {
+        await uploadDxfStream(
+          file,
+          (p) => setProgress(p),
+          (data) => {
+            setProgress({ step: "finalizing", message: "완료", percent: 100 });
+            setComplete(true);
+            setTimeout(() => {
+              onUploadComplete(data);
+              setUploading(false);
+              setProgress(null);
+              setComplete(false);
+            }, 1000);
+          },
+          (message) => {
+            onError(message);
+            setUploading(false);
+            setProgress(null);
+          },
+        );
+      } catch {
+        onError("업로드 실패");
         setUploading(false);
+        setProgress(null);
       }
     },
-    [onUploadComplete, onError]
+    [onUploadComplete, onError],
   );
 
   const handleDrop = useCallback(
@@ -60,7 +97,7 @@ export default function UploadZone({
       const file = e.dataTransfer.files[0];
       if (file) handleFile(file);
     },
-    [handleFile]
+    [handleFile],
   );
 
   const handleChange = useCallback(
@@ -69,8 +106,16 @@ export default function UploadZone({
       if (file) handleFile(file);
       e.target.value = "";
     },
-    [handleFile]
+    [handleFile],
   );
+
+  const visibleSteps = STEPS.filter(
+    (s) => s.key !== "converting" || fileExtRef.current === "dwg",
+  );
+
+  const currentStepIndex = progress
+    ? visibleSteps.findIndex((s) => s.key === progress.step)
+    : -1;
 
   return (
     <div>
@@ -82,7 +127,7 @@ export default function UploadZone({
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
-        className="cursor-pointer transition-colors"
+        className={uploading ? "" : "cursor-pointer transition-colors"}
         style={{
           margin: 12,
           marginBottom: inlineError ? 4 : 12,
@@ -101,39 +146,99 @@ export default function UploadZone({
           className="hidden"
         />
         {uploading ? (
-          <>
+          <div style={{ padding: "4px 0" }}>
+            {/* Progress bar */}
             <div
-              className="flex items-center justify-center mx-auto"
               style={{
-                width: 28,
-                height: 28,
-                marginBottom: 8,
-                background: "var(--bg-card)",
-                borderRadius: 6,
+                height: 3,
+                background: "var(--border)",
+                borderRadius: 2,
+                margin: "0 0 14px",
+                overflow: "hidden",
               }}
             >
-              <svg
-                className="animate-spin"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="var(--accent-blue)"
-                strokeWidth="2"
-              >
-                <path d="M21 12a9 9 0 11-6.219-8.56" />
-              </svg>
+              <div
+                style={{
+                  height: "100%",
+                  width: `${progress?.percent ?? 0}%`,
+                  background: complete ? "#4ade80" : "var(--accent-blue)",
+                  borderRadius: 2,
+                  transition: "width 0.3s ease, background 0.3s ease",
+                }}
+              />
             </div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-              <strong
-                className="block font-medium"
-                style={{ fontSize: 11, color: "var(--text-label)" }}
-              >
-                파싱 중...
-              </strong>
-              잠시만 기다려주세요
+
+            {/* Step list */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 5,
+                alignItems: "flex-start",
+                margin: "0 auto",
+                width: "fit-content",
+              }}
+            >
+              {visibleSteps.map((step, idx) => {
+                const isCompleted = currentStepIndex > idx || complete;
+                const isCurrent = currentStepIndex === idx && !complete;
+                const isPending = currentStepIndex < idx;
+
+                if (isPending) return null;
+
+                return (
+                  <div
+                    key={step.key}
+                    className="flex items-center gap-2"
+                    style={{ fontSize: 11 }}
+                  >
+                    {isCompleted ? (
+                      <span style={{ color: "var(--text-dim)", fontSize: 10, width: 12, textAlign: "center" }}>
+                        ✓
+                      </span>
+                    ) : isCurrent ? (
+                      <svg
+                        className="animate-spin"
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="var(--accent-blue)"
+                        strokeWidth="2.5"
+                        style={{ width: 12, flexShrink: 0 }}
+                      >
+                        <path d="M21 12a9 9 0 11-6.219-8.56" />
+                      </svg>
+                    ) : null}
+                    <span
+                      style={{
+                        color: isCompleted
+                          ? "var(--text-dim)"
+                          : "var(--text-label)",
+                      }}
+                    >
+                      {complete && idx === visibleSteps.length - 1
+                        ? "완료"
+                        : step.label}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-          </>
+
+            {/* Time estimate */}
+            {!complete && (
+              <div
+                style={{
+                  fontSize: 10,
+                  color: "var(--text-dim)",
+                  marginTop: 10,
+                }}
+              >
+                {getTimeEstimate(fileSizeRef.current)}
+              </div>
+            )}
+          </div>
         ) : (
           <>
             <div
