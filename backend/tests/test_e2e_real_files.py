@@ -447,15 +447,7 @@ class TestInputVersionCompat:
         return paths
 
     @pytest.mark.parametrize(
-        "acver,name",
-        [
-            ("AC1015", "R2000"),
-            ("AC1018", "R2004"),
-            ("AC1021", "R2007"),
-            ("AC1024", "R2010"),
-            ("AC1027", "R2013"),
-            ("AC1032", "R2018"),
-        ],
+        "acver,name", list(INPUT_VERSIONS.items()),
     )
     def test_version_upload_apply_verify(
         self, client, original_doc, version_dxf_files, acver, name

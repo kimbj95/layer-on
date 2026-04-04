@@ -106,10 +106,8 @@ export default function UploadZone({
     [handleFile],
   );
 
-  const visibleSteps = STEPS;
-
   const currentStepIndex = progress
-    ? visibleSteps.findIndex((s) => s.key === progress.step)
+    ? STEPS.findIndex((s) => s.key === progress.step)
     : -1;
 
   return (
@@ -174,7 +172,7 @@ export default function UploadZone({
                 width: "fit-content",
               }}
             >
-              {visibleSteps.map((step, idx) => {
+              {STEPS.map((step, idx) => {
                 const isCompleted = currentStepIndex > idx || complete;
                 const isCurrent = currentStepIndex === idx && !complete;
                 const isPending = currentStepIndex < idx;
@@ -212,7 +210,7 @@ export default function UploadZone({
                           : "var(--text-label)",
                       }}
                     >
-                      {complete && idx === visibleSteps.length - 1
+                      {complete && idx === STEPS.length - 1
                         ? "완료"
                         : step.label}
                     </span>
