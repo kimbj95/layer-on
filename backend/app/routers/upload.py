@@ -37,6 +37,15 @@ def _sync_read_dxf(file_path: str) -> list[dict]:
     return [{"name": layer.dxf.name, "aci_color": layer.color} for layer in doc.layers]
 
 
+def _aci_to_hex(aci: int) -> str:
+    """Convert ACI color index to hex string."""
+    from ezdxf.colors import DXF_DEFAULT_COLORS, int2rgb
+    if aci < 0 or aci >= len(DXF_DEFAULT_COLORS):
+        return "#ffffff"
+    r, g, b = int2rgb(DXF_DEFAULT_COLORS[aci])
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
 def _sync_map_layers(raw_layers: list[dict]) -> list[dict]:
     """Map raw layers to standard layer info via LayerMapper."""
     layers = []
@@ -45,7 +54,7 @@ def _sync_map_layers(raw_layers: list[dict]) -> list[dict]:
         layers.append({
             "original_name": raw["name"],
             **info,
-            "current_color": info["default_color"],
+            "current_color": _aci_to_hex(raw["aci_color"]),
             "original_aci_color": raw["aci_color"],
         })
     return layers

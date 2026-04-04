@@ -119,7 +119,7 @@ class TestUploadSuccess:
         highway = next(l for l in all_layers if l["original_name"] == "A0013111")
         assert highway["is_mapped"] is True
         assert "고속국도" in highway["name"]
-        assert highway["current_color"] == "#FF6B6B"
+        assert highway["current_color"] == "#ff0000"  # ACI 1 = red
         assert highway["original_aci_color"] == 1
 
     def test_unmapped_layers_listed(self, client, sample_dxf):
