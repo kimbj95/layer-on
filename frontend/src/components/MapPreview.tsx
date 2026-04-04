@@ -6,6 +6,7 @@ import type { GeometryData } from "@/types";
 interface MapPreviewProps {
   geometry: GeometryData | null;
   layerColors: Map<string, string>;
+  hiddenLayers?: Set<string>;
   loading: boolean;
   error?: string | null;
 }
@@ -19,6 +20,7 @@ interface Transform {
 export default function MapPreview({
   geometry,
   layerColors,
+  hiddenLayers,
   loading,
   error,
 }: MapPreviewProps) {
@@ -34,6 +36,8 @@ export default function MapPreview({
   geometryRef.current = geometry;
   const colorsRef = useRef(layerColors);
   colorsRef.current = layerColors;
+  const hiddenRef = useRef(hiddenLayers);
+  hiddenRef.current = hiddenLayers;
 
   // Calculate fit-all transform
   const calcFitTransform = useCallback(
@@ -96,7 +100,9 @@ export default function MapPreview({
     ctx.setTransform(t.scale * dpr, 0, 0, -t.scale * dpr, t.offsetX * dpr, t.offsetY * dpr);
     ctx.lineWidth = 1 / t.scale;
 
+    const hidden = hiddenRef.current;
     for (const entity of geo.entities) {
+      if (hidden?.has(entity.layer)) continue;
       const color = colors.get(entity.layer) || "#888888";
       ctx.strokeStyle = color;
 
@@ -169,7 +175,7 @@ export default function MapPreview({
     if (!geometry) return;
     draw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layerColors]);
+  }, [layerColors, hiddenLayers]);
 
   // Resize observer — only re-registers when geometry identity changes
   useEffect(() => {

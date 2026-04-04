@@ -175,3 +175,53 @@ class TestDwgOutput:
             )
         assert resp.status_code == 400
         assert "변환기" in resp.json()["detail"]
+
+
+class TestHiddenLayers:
+    def test_hidden_layers_removed_from_output(self, client, uploaded_session):
+        """Hidden layers should have their entities removed from output."""
+        sid = uploaded_session["session_id"]
+        resp = client.post(
+            f"/api/session/{sid}/apply",
+            json={"layer_overrides": {}, "hidden_layers": ["A0013111"]},
+        )
+        assert resp.status_code == 200
+
+        doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
+
+        # Hidden layer should be turned off
+        layer = doc.layers.get("A0013111")
+        assert layer.is_off()
+
+        # No entities should be on the hidden layer
+        msp = doc.modelspace()
+        hidden_entities = [e for e in msp if e.dxf.layer == "A0013111"]
+        assert len(hidden_entities) == 0
+
+    def test_non_hidden_layers_preserved(self, client, uploaded_session):
+        """Non-hidden layers should be unaffected."""
+        sid = uploaded_session["session_id"]
+        resp = client.post(
+            f"/api/session/{sid}/apply",
+            json={"layer_overrides": {}, "hidden_layers": ["A0013111"]},
+        )
+        assert resp.status_code == 200
+
+        doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
+
+        # Non-hidden layer should still be on
+        layer = doc.layers.get("B0014110")
+        assert layer.is_on()
+
+    def test_empty_hidden_layers(self, client, uploaded_session):
+        """Empty hidden_layers list should not affect anything."""
+        sid = uploaded_session["session_id"]
+        resp = client.post(
+            f"/api/session/{sid}/apply",
+            json={"layer_overrides": {}, "hidden_layers": []},
+        )
+        assert resp.status_code == 200
+
+        doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
+        for layer in doc.layers:
+            assert layer.is_on()

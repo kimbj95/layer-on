@@ -332,11 +332,15 @@ class LayerOverride(BaseModel):
 class ApplyRequest(BaseModel):
     layer_overrides: dict[str, LayerOverride] = {}
     output_format: Literal["dxf", "dwg"] = "dxf"
+    hidden_layers: list[str] = []
 
 
 def _sync_apply_colors(
-    session_dir: Path, overrides: dict[str, dict], output_format: str = "dxf"
-) -> dict:
+    session_dir: Path,
+    overrides: dict[str, dict],
+    output_format: str = "dxf",
+    hidden_layers: set[str] | None = None,
+) -> None:
     """Synchronous color application — runs in thread pool."""
     state = json.loads((session_dir / "state.json").read_text(encoding="utf-8"))
     doc = ezdxf.readfile(str(session_dir / "input.dxf"))
@@ -391,6 +395,17 @@ def _sync_apply_colors(
             except ezdxf.DXFTableEntryError:
                 pass
 
+    # Delete entities on hidden layers
+    if hidden_layers:
+        msp = doc.modelspace()
+        to_delete = [e for e in msp if e.dxf.layer in hidden_layers]
+        for e in to_delete:
+            msp.delete_entity(e)
+        # Also hide the layer definitions (turn off)
+        for layer in doc.layers:
+            if layer.dxf.name in hidden_layers:
+                layer.off()
+
     output_path = session_dir / "output.dxf"
     doc.saveas(str(output_path))
 
@@ -405,7 +420,10 @@ async def apply_colors(session_id: str, body: ApplyRequest):
 
     try:
         await asyncio.wait_for(
-            asyncio.to_thread(_sync_apply_colors, session_dir, overrides, body.output_format),
+            asyncio.to_thread(
+                _sync_apply_colors, session_dir, overrides,
+                body.output_format, set(body.hidden_layers),
+            ),
             timeout=PARSE_TIMEOUT,
         )
     except asyncio.TimeoutError:

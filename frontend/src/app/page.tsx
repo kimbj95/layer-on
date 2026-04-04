@@ -66,6 +66,7 @@ export default function Home() {
   );
   const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [hiddenLayers, setHiddenLayers] = useState<Set<string>>(new Set());
   const [geometryData, setGeometryData] = useState<GeometryData | null>(null);
   const [geometryLoading, setGeometryLoading] = useState(false);
   const [geometryError, setGeometryError] = useState<string | null>(null);
@@ -126,6 +127,7 @@ export default function Home() {
     setQuery("");
     setActiveCategories(new Set());
     setSelectedLayer(null);
+    setHiddenLayers(new Set());
 
     // Fetch geometry in background
     setGeometryData(null);
@@ -151,6 +153,7 @@ export default function Home() {
     setQuery("");
     setActiveCategories(new Set());
     setSelectedLayer(null);
+    setHiddenLayers(new Set());
     setGeometryData(null);
     setGeometryError(null);
   }, []);
@@ -219,6 +222,37 @@ export default function Home() {
     });
   }, []);
 
+  const handleToggleLayerVisibility = useCallback((layerName: string) => {
+    setHiddenLayers((prev) => {
+      const next = new Set(prev);
+      if (next.has(layerName)) next.delete(layerName);
+      else next.add(layerName);
+      return next;
+    });
+  }, []);
+
+  const handleToggleCategoryVisibility = useCallback(
+    (categoryMajor: string) => {
+      if (!baseSession) return;
+      setHiddenLayers((prev) => {
+        const next = new Set(prev);
+        const cat = baseSession.categories.find(
+          (c) => c.category_major === categoryMajor,
+        );
+        if (!cat) return prev;
+        const allHidden = cat.layers.every((l) =>
+          next.has(l.original_name),
+        );
+        for (const l of cat.layers) {
+          if (allHidden) next.delete(l.original_name);
+          else next.add(l.original_name);
+        }
+        return next;
+      });
+    },
+    [baseSession],
+  );
+
   const handleResetAll = useCallback(() => {
     if (!window.confirm("모든 레이어를 기본 색상으로 초기화하시겠습니까?")) {
       return;
@@ -235,7 +269,10 @@ export default function Home() {
         for (const [name, color] of colorOverrides) {
           overrides[name] = { color };
         }
-        await applyColors(baseSession.session_id, overrides, outputFormat);
+        await applyColors(
+          baseSession.session_id, overrides, outputFormat,
+          Array.from(hiddenLayers),
+        );
 
         const blob = await downloadDxf(baseSession.session_id);
         const url = URL.createObjectURL(blob);
@@ -262,7 +299,7 @@ export default function Home() {
         setSaving(false);
       }
     },
-    [session, baseSession, colorOverrides, showToast]
+    [session, baseSession, colorOverrides, hiddenLayers, showToast]
   );
 
   // Cmd/Ctrl+S
@@ -327,6 +364,9 @@ export default function Home() {
                     selectedLayer={selectedLayer}
                     onSelectLayer={setSelectedLayer}
                     onApplyToCategory={handleApplyToCategory}
+                    hiddenLayers={hiddenLayers}
+                    onToggleLayerVisibility={handleToggleLayerVisibility}
+                    onToggleCategoryVisibility={handleToggleCategoryVisibility}
                   />
                 </>
               ) : (
@@ -356,6 +396,7 @@ export default function Home() {
             <MapPreview
               geometry={geometryData}
               layerColors={layerColors}
+              hiddenLayers={hiddenLayers}
               loading={geometryLoading}
               error={geometryError}
             />

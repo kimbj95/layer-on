@@ -12,6 +12,9 @@ interface LayerListProps {
   selectedLayer: string | null;
   onSelectLayer: (layerName: string) => void;
   onApplyToCategory: (categoryMajor: string, color: string) => void;
+  hiddenLayers: Set<string>;
+  onToggleLayerVisibility: (layerName: string) => void;
+  onToggleCategoryVisibility: (categoryMajor: string) => void;
 }
 
 function matchesQuery(layer: LayerInfo, q: string): boolean {
@@ -31,6 +34,9 @@ export default function LayerList({
   selectedLayer,
   onSelectLayer,
   onApplyToCategory,
+  hiddenLayers,
+  onToggleLayerVisibility,
+  onToggleCategoryVisibility,
 }: LayerListProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
@@ -92,6 +98,10 @@ export default function LayerList({
         const isCollapsed = collapsed[key] ?? false;
         const dotColor = CATEGORY_COLOR_MAP[key] ?? "var(--text-dim)";
 
+        const allHidden = group.layers.every((l) =>
+          hiddenLayers.has(l.original_name),
+        );
+
         return (
           <div key={key}>
             <GroupHeader
@@ -101,6 +111,8 @@ export default function LayerList({
               count={group.count}
               onClick={() => toggleGroup(key)}
               onApplyColor={(color) => onApplyToCategory(key, color)}
+              checked={!allHidden}
+              onToggleVisibility={() => onToggleCategoryVisibility(key)}
             />
             {!isCollapsed &&
               group.layers.map((layer) => (
@@ -108,6 +120,10 @@ export default function LayerList({
                   key={layer.original_name}
                   layer={layer}
                   selected={selectedLayer === layer.original_name}
+                  hidden={hiddenLayers.has(layer.original_name)}
+                  onToggleVisibility={() =>
+                    onToggleLayerVisibility(layer.original_name)
+                  }
                   onClick={() => onSelectLayer(layer.original_name)}
                 />
               ))}
@@ -138,6 +154,10 @@ export default function LayerList({
                 key={layer.original_name}
                 layer={layer}
                 selected={selectedLayer === layer.original_name}
+                hidden={hiddenLayers.has(layer.original_name)}
+                onToggleVisibility={() =>
+                  onToggleLayerVisibility(layer.original_name)
+                }
                 onClick={() => onSelectLayer(layer.original_name)}
                 unmapped
               />
@@ -158,6 +178,8 @@ function GroupHeader({
   onClick,
   warning,
   onApplyColor,
+  checked,
+  onToggleVisibility,
 }: {
   arrow: string;
   dotColor: string;
@@ -166,6 +188,8 @@ function GroupHeader({
   onClick: () => void;
   warning?: boolean;
   onApplyColor?: (color: string) => void;
+  checked?: boolean;
+  onToggleVisibility?: () => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -178,6 +202,16 @@ function GroupHeader({
       }
       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
     >
+      {onToggleVisibility && (
+        <input
+          type="checkbox"
+          checked={checked ?? true}
+          onChange={onToggleVisibility}
+          className="shrink-0 cursor-pointer"
+          style={{ width: 12, height: 12, accentColor: "var(--accent-blue)" }}
+          onClick={(e) => e.stopPropagation()}
+        />
+      )}
       <span
         onClick={onClick}
         className="cursor-pointer"
@@ -286,11 +320,15 @@ function GroupHeader({
 function LayerRow({
   layer,
   selected,
+  hidden,
+  onToggleVisibility,
   onClick,
   unmapped,
 }: {
   layer: LayerInfo;
   selected: boolean;
+  hidden?: boolean;
+  onToggleVisibility?: () => void;
   onClick: () => void;
   unmapped?: boolean;
 }) {
@@ -302,6 +340,7 @@ function LayerRow({
         padding: "5px 14px 5px 32px",
         background: selected ? "var(--bg-selected)" : "transparent",
         borderLeft: selected ? "2px solid var(--accent-blue)" : "2px solid transparent",
+        opacity: hidden ? 0.4 : 1,
       }}
       onMouseEnter={(e) => {
         if (!selected) e.currentTarget.style.background = "#242830";
@@ -310,6 +349,16 @@ function LayerRow({
         if (!selected) e.currentTarget.style.background = "transparent";
       }}
     >
+      {onToggleVisibility && (
+        <input
+          type="checkbox"
+          checked={!hidden}
+          onChange={onToggleVisibility}
+          className="shrink-0 cursor-pointer"
+          style={{ width: 11, height: 11, accentColor: "var(--accent-blue)" }}
+          onClick={(e) => e.stopPropagation()}
+        />
+      )}
       <span
         className="shrink-0 font-mono"
         style={{
