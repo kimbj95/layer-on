@@ -112,6 +112,19 @@ export default function Sidebar({
           )}
         </>
       )}
+
+      <div className="mt-auto" style={{ padding: "8px 12px", fontSize: 9, color: "var(--text-code)", lineHeight: 1.4 }}>
+        <a
+          href="https://www.law.go.kr/LSW/admRulLsInfoP.do?admRulSeq=2100000214069"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "var(--text-dim)", textDecoration: "none" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-dim)")}
+        >
+          표준코드: 국토지리정보원 고시 제2022-3600호
+        </a>
+      </div>
     </div>
   );
 }
