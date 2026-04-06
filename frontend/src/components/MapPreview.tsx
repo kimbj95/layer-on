@@ -343,7 +343,7 @@ export default function MapPreview({
             pointerEvents: "none",
           }}
         >
-          DWG 미리보기는 일부 요소가 표시되지 않을 수 있습니다
+          DWG 미리보기는 일부 요소가 표시되지 않을 수 있습니다 (저장 시 모든 데이터가 보존됩니다)
         </div>
       )}
     </div>

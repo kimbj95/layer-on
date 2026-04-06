@@ -1,6 +1,6 @@
 "use client";
 
-import { CATEGORY_META, aciToHex } from "@/lib/constants";
+import { CATEGORY_META } from "@/lib/constants";
 
 interface SearchBarProps {
   query: string;
@@ -116,15 +116,6 @@ export default function SearchBar({
                 color: "var(--text-secondary)",
               }}
             >
-              <span
-                className="shrink-0"
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: 2,
-                  background: aciToHex(cat.aci),
-                }}
-              />
               <span>
                 {cat.letter} {cat.name}
               </span>
