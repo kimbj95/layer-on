@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 import ezdxf
+from ezdxf import disassemble
 from fastapi import APIRouter, HTTPException
 
 router = APIRouter(prefix="/api")
@@ -30,7 +31,7 @@ def _sync_extract_geometry(dxf_path: Path) -> dict:
         if y < min_y: min_y = y
         if y > max_y: max_y = y
 
-    for e in msp:
+    for e in disassemble.recursive_decompose(msp):
         etype = e.dxftype()
         layer = e.dxf.layer
         total += 1
