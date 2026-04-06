@@ -1,5 +1,5 @@
 # Stage 1: Build .NET DWG converter
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS dotnet-build
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS dotnet-build
 WORKDIR /src
 COPY dwg-converter/ ./dwg-converter/
 COPY lib/ACadSharp/src/ ./lib/ACadSharp/src/
