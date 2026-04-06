@@ -30,5 +30,6 @@ dwg-converter/obj/
 dwg-converter/publish/
 
 # Local tools & libs
-lib/
+lib/ACadSharp/**/bin/
+lib/ACadSharp/**/obj/
 tools/
