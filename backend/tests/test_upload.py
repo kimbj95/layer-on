@@ -40,13 +40,13 @@ class TestUploadValidation:
 
     def test_reject_oversized(self, client):
         # 51MB of zeros
-        big_content = b"\x00" * (51 * 1024 * 1024)
+        big_content = b"\x00" * (201 * 1024 * 1024)
         resp = client.post(
             "/api/upload",
             files={"file": ("big.dxf", big_content, "application/octet-stream")},
         )
         assert resp.status_code == 413
-        assert "50MB" in resp.json()["detail"]
+        assert "200MB" in resp.json()["detail"]
 
 
 class TestDwgUploadValidation:

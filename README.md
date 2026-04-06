@@ -93,7 +93,7 @@ npm run build
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/health` | Health check |
-| POST | `/api/upload` | Upload DXF/DWG file (multipart, max 50MB) |
+| POST | `/api/upload` | Upload DXF/DWG file (multipart, max 200MB) |
 | GET | `/api/session/{id}` | Get session state |
 | POST | `/api/session/{id}/apply` | Apply colors, generate output (DXF or DWG) |
 | GET | `/api/session/{id}/download` | Download processed file (DXF or DWG) |

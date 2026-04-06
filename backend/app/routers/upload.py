@@ -24,7 +24,7 @@ from utils.layer_mapper import LayerMapper
 router = APIRouter(prefix="/api")
 
 SESSIONS_DIR = Path("/tmp/layeron")
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+MAX_FILE_SIZE = 200 * 1024 * 1024  # 200MB
 PARSE_TIMEOUT = 60  # seconds
 
 mapper = LayerMapper()
@@ -187,7 +187,7 @@ async def upload_file(file: UploadFile):
 
     content = await file.read()
     if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="파일 크기는 50MB 이하만 지원합니다")
+        raise HTTPException(status_code=413, detail="파일 크기는 200MB 이하만 지원합니다")
 
     session_id = str(uuid.uuid4())
     session_dir = SESSIONS_DIR / session_id
@@ -228,7 +228,7 @@ async def upload_file_stream(file: UploadFile):
     content = await file.read()
     if len(content) > MAX_FILE_SIZE:
         return StreamingResponse(
-            _error_stream("파일 크기는 50MB 이하만 지원합니다"),
+            _error_stream("파일 크기는 200MB 이하만 지원합니다"),
             media_type="text/event-stream",
         )
 

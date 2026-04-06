@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers.geometry import router as geometry_router
-from app.routers.upload import cleanup_old_sessions, router as upload_router
+from app.routers.upload import cleanup_old_sessions, router as upload_router, MAX_FILE_SIZE
 from utils.dwg_converter import is_converter_available
 
 
@@ -33,4 +33,8 @@ app.include_router(geometry_router)
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "ok", "converter_available": is_converter_available()}
+    return {
+        "status": "ok",
+        "converter_available": is_converter_available(),
+        "max_file_size_mb": MAX_FILE_SIZE // (1024 * 1024),
+    }

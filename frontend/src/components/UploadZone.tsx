@@ -48,8 +48,8 @@ export default function UploadZone({
         return;
       }
 
-      if (file.size > 50 * 1024 * 1024) {
-        setInlineError("50MB 이하 파일만 지원합니다");
+      if (file.size > 200 * 1024 * 1024) {
+        setInlineError("200MB 이하 파일만 지원합니다");
         return;
       }
 
@@ -268,7 +268,7 @@ export default function UploadZone({
               >
                 DXF / DWG 파일 업로드
               </strong>
-              클릭 또는 드래그
+              클릭 또는 드래그 (최대 200MB)
             </div>
           </>
         )}
