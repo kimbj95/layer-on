@@ -31,7 +31,18 @@ def _sync_extract_geometry(dxf_path: Path) -> dict:
         if y < min_y: min_y = y
         if y > max_y: max_y = y
 
-    for e in disassemble.recursive_decompose(msp):
+    def _safe_decompose(msp):
+        """Wrap recursive_decompose to skip entities that cause errors."""
+        it = iter(disassemble.recursive_decompose(msp))
+        while True:
+            try:
+                yield next(it)
+            except StopIteration:
+                break
+            except Exception:
+                continue
+
+    for e in _safe_decompose(msp):
         etype = e.dxftype()
         layer = e.dxf.layer
         total += 1
