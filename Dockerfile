@@ -13,9 +13,17 @@ RUN dotnet publish dwg-converter/DwgConverter.csproj \
 FROM python:3.11-slim
 WORKDIR /app
 
+# Install system deps for .NET self-contained binary
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libicu72 libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy DWG converter binary
 COPY --from=dotnet-build /out/bin/DwgConverter /app/bin/DwgConverter
 RUN chmod +x /app/bin/DwgConverter
+
+# Verify DwgConverter runs
+RUN /app/bin/DwgConverter --help || echo "WARN: DwgConverter cannot execute"
 
 # Install Python dependencies
 COPY backend/requirements.txt .
