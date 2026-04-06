@@ -395,6 +395,7 @@ export default function Home() {
               hiddenLayers={hiddenLayers}
               loading={geometryLoading}
               error={geometryError}
+              isDwg={session?.original_format === "dwg"}
             />
           }
         />

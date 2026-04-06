@@ -9,6 +9,7 @@ interface MapPreviewProps {
   hiddenLayers?: Set<string>;
   loading: boolean;
   error?: string | null;
+  isDwg?: boolean;
 }
 
 interface Transform {
@@ -23,6 +24,7 @@ export default function MapPreview({
   hiddenLayers,
   loading,
   error,
+  isDwg,
 }: MapPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -318,6 +320,7 @@ export default function MapPreview({
         background: "#1a1d21",
         cursor: panning ? "grabbing" : "grab",
         overflow: "hidden",
+        position: "relative",
       }}
     >
       <canvas
@@ -327,6 +330,22 @@ export default function MapPreview({
         onDoubleClick={handleDoubleClick}
         style={{ display: "block", width: "100%", height: "100%" }}
       />
+      {isDwg && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 6,
+            left: 0,
+            right: 0,
+            textAlign: "center",
+            fontSize: 10,
+            color: "var(--text-dim)",
+            pointerEvents: "none",
+          }}
+        >
+          DWG 미리보기는 일부 요소가 표시되지 않을 수 있습니다
+        </div>
+      )}
     </div>
   );
 }

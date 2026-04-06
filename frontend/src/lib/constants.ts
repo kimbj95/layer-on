@@ -14,14 +14,15 @@ export const CATEGORY_ACI_MAP: Record<string, number> = Object.fromEntries(
 );
 
 // ACI color palette for the color editor
-// Row 1: standard 9 colors
-// Row 2: extended palette
+// Row 1: standard 9 colors (ACI 1-9)
+// Row 2: useful distinct colors from extended ACI palette
 export const ACI_PALETTE = [
   1, 2, 3, 4, 5, 6, 7, 8, 9,
-  10, 20, 30, 40, 50, 150, 170, 200, 210, 250,
+  14, 22, 30, 42, 62, 94, 134, 174, 210, 250,
 ];
 
-// ACI index → hex color for display rendering
+// AutoCAD standard ACI color table (accurate values)
+// Reference: https://gohtx.com/acadcolors.php
 export const ACI_TO_HEX: Record<number, string> = {
   1: "#FF0000",   // Red
   2: "#FFFF00",   // Yellow
@@ -32,20 +33,26 @@ export const ACI_TO_HEX: Record<number, string> = {
   7: "#FFFFFF",   // White
   8: "#808080",   // Gray
   9: "#C0C0C0",   // Light gray
-  10: "#FF0000",  // Red
-  20: "#FFCC00",  // Dark yellow
+  10: "#FF0000",  // Red (same as 1)
+  14: "#FF7F7F",  // Light red / salmon
+  20: "#FF3F00",  // Red-orange
+  22: "#FF7F00",  // Orange
   30: "#FF7F00",  // Orange
-  32: "#FF9F43",  // Light orange
-  40: "#BFFF00",  // Yellow-green
-  50: "#00FF00",  // Green
-  80: "#00FF80",  // Spring green
-  90: "#00FFBF",  // Aquamarine
-  140: "#00BFFF", // Deep sky blue
-  150: "#007FFF", // Azure
-  170: "#0000FF", // Blue
-  200: "#7F00FF", // Violet
-  210: "#BF00FF", // Purple
-  220: "#FF00FF", // Magenta
+  32: "#FFBF00",  // Amber
+  40: "#FFFF00",  // Yellow (same as 2)
+  42: "#BFFF00",  // Yellow-green
+  50: "#00FF00",  // Green (same as 3)
+  62: "#00FF7F",  // Spring green
+  80: "#00FFBF",  // Turquoise
+  90: "#00FFFF",  // Cyan (same as 4)
+  94: "#007FFF",  // Azure
+  130: "#0000FF", // Blue (same as 5)
+  134: "#3F00FF", // Indigo
+  150: "#7F00FF", // Violet
+  170: "#BF00FF", // Purple
+  174: "#FF00BF", // Hot pink
+  200: "#FF007F", // Rose
+  210: "#FF0040", // Crimson
   250: "#333333", // Near black
 };
 
