@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import type { LayerInfo, SessionState } from "@/types";
 import UploadZone from "./UploadZone";
 import DxfGuide from "./DxfGuide";
 import FileInfo from "./FileInfo";
 import ColorEditor from "./ColorEditor";
+import SecurityModal from "./SecurityModal";
 
 interface SidebarProps {
   session: SessionState | null;
@@ -35,6 +37,8 @@ export default function Sidebar({
           .filter((c) => c !== "")
       ).size
     : 0;
+
+  const [showSecurity, setShowSecurity] = useState(false);
 
   return (
     <div
@@ -113,18 +117,69 @@ export default function Sidebar({
         </>
       )}
 
-      <div className="mt-auto" style={{ padding: "8px 12px", fontSize: 9, color: "var(--text-code)", lineHeight: 1.4 }}>
+      <div
+        className="mt-auto flex"
+        style={{
+          padding: "10px 10px",
+          fontSize: 9,
+          lineHeight: 1.5,
+          gap: 6,
+        }}
+      >
         <a
           href="https://www.law.go.kr/LSW/admRulLsInfoP.do?admRulSeq=2100000214069"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: "var(--text-dim)", textDecoration: "none" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-dim)")}
+          className="flex-1 flex flex-col items-center justify-center"
+          style={{
+            color: "var(--text-dim)",
+            textDecoration: "none",
+            textAlign: "center",
+            padding: "6px 4px",
+            borderRadius: 6,
+            border: "0.5px solid var(--border)",
+            transition: "background 0.15s, border-color 0.15s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "var(--bg-hover)";
+            e.currentTarget.style.borderColor = "var(--border-interactive)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.borderColor = "var(--border)";
+          }}
         >
-          표준코드: 국토지리정보원 고시 제2022-3600호
+          <div style={{ color: "var(--text-code)" }}>적용 기준</div>
+          <div>국토지리정보원</div>
+          <div>고시 제2022-3600호</div>
         </a>
+        <button
+          onClick={() => setShowSecurity(true)}
+          className="flex-1 flex flex-col items-center justify-center"
+          style={{
+            background: "none",
+            padding: "6px 4px",
+            fontSize: 9,
+            color: "var(--text-dim)",
+            cursor: "pointer",
+            borderRadius: 6,
+            border: "0.5px solid var(--border)",
+            transition: "background 0.15s, border-color 0.15s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "var(--bg-hover)";
+            e.currentTarget.style.borderColor = "var(--border-interactive)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.borderColor = "var(--border)";
+          }}
+        >
+          🔒 보안안내
+        </button>
       </div>
+
+      <SecurityModal open={showSecurity} onClose={() => setShowSecurity(false)} />
     </div>
   );
 }

@@ -6,6 +6,8 @@ interface BottomBarProps {
 }
 
 export default function BottomBar({ session, dirty }: BottomBarProps) {
+  if (!session) return null;
+
   return (
     <div
       className="flex items-center justify-between shrink-0"
@@ -19,32 +21,26 @@ export default function BottomBar({ session, dirty }: BottomBarProps) {
         className="flex items-center gap-2"
         style={{ fontSize: 11, color: "var(--text-dim)" }}
       >
-        {session ? (
-          <>
-            <span>
-              {session.total_layers}개 레이어 ·{" "}
-              <span style={{ color: "var(--accent-blue)" }}>
-                {session.mapped_count}개 매핑됨
-              </span>
-              {" "}· {session.original_format?.toUpperCase() || "DXF"} · 파싱 완료
-            </span>
-            {dirty && (
-              <span className="flex items-center gap-1">
-                <span
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
-                    background: "#FFD32A",
-                    display: "inline-block",
-                  }}
-                />
-                <span style={{ color: "#FFD32A" }}>변경사항 있음</span>
-              </span>
-            )}
-          </>
-        ) : (
-          "파일을 업로드해주세요"
+        <span>
+          {session.total_layers}개 레이어 ·{" "}
+          <span style={{ color: "var(--accent-blue)" }}>
+            {session.mapped_count}개 매핑됨
+          </span>
+          {" "}· {session.original_format?.toUpperCase() || "DXF"} · 파싱 완료
+        </span>
+        {dirty && (
+          <span className="flex items-center gap-1">
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: "#FFD32A",
+                display: "inline-block",
+              }}
+            />
+            <span style={{ color: "#FFD32A" }}>변경사항 있음</span>
+          </span>
         )}
       </div>
     </div>
