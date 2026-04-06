@@ -4,6 +4,14 @@ import ezdxf
 import pytest
 
 from app.routers.upload import SESSIONS_DIR
+from utils.layer_mapper import LayerMapper
+
+_mapper = LayerMapper()
+
+
+def _renamed(code: str) -> str:
+    """Get the renamed layer name for a given code."""
+    return _mapper.get_layer_info(code).get("renamed", code)
 
 
 @pytest.fixture
@@ -55,7 +63,7 @@ class TestApplyDefaults:
         sid = uploaded_session["session_id"]
         client.post(f"/api/session/{sid}/apply", json={"layer_overrides": {}})
         doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
-        highway = doc.layers.get("A0013111")
+        highway = doc.layers.get(_renamed("A0013111"))
         # Default ACI for category A (교통) = 1 (Red)
         assert highway.color == 1
 
@@ -63,8 +71,18 @@ class TestApplyDefaults:
         sid = uploaded_session["session_id"]
         client.post(f"/api/session/{sid}/apply", json={"layer_overrides": {}})
         doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
-        highway = doc.layers.get("A0013111")
+        highway = doc.layers.get(_renamed("A0013111"))
         assert highway.description != ""
+
+    def test_layer_renamed(self, client, uploaded_session):
+        """After apply, layers should have English-renamed names."""
+        sid = uploaded_session["session_id"]
+        client.post(f"/api/session/{sid}/apply", json={"layer_overrides": {}})
+        doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
+        renamed = _renamed("A0013111")
+        assert "Traffic" in renamed
+        layer = doc.layers.get(renamed)
+        assert layer is not None
 
 
 class TestApplyOverrides:
@@ -80,7 +98,7 @@ class TestApplyOverrides:
         )
         assert resp.status_code == 200
         doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
-        highway = doc.layers.get("A0013111")
+        highway = doc.layers.get(_renamed("A0013111"))
         assert highway.color == 3  # Green
 
     def test_override_partial(self, client, uploaded_session):
@@ -96,7 +114,7 @@ class TestApplyOverrides:
         )
         assert resp.status_code == 200
         doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
-        building = doc.layers.get("B0014110")
+        building = doc.layers.get(_renamed("B0014110"))
         assert building.color == 5  # Blue
 
     def test_non_overridden_layers_get_defaults(self, client, uploaded_session):
@@ -107,7 +125,7 @@ class TestApplyOverrides:
         )
         doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
         # B0014110 should get its default ACI color (category B = 2)
-        building = doc.layers.get("B0014110")
+        building = doc.layers.get(_renamed("B0014110"))
         assert building.color == 2  # Yellow
 
 
@@ -131,7 +149,7 @@ class TestApplyErrors:
             json={"layer_overrides": {"A0013111": {"aci_color": 5}}},
         )
         doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
-        highway = doc.layers.get("A0013111")
+        highway = doc.layers.get(_renamed("A0013111"))
         assert highway.color == 5  # Blue
 
 
@@ -163,6 +181,23 @@ class TestDownload:
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "application/dxf"
 
+    def test_download_explicit_format_dxf(self, client, uploaded_session):
+        """Explicit format=dxf should return DXF."""
+        sid = uploaded_session["session_id"]
+        client.post(f"/api/session/{sid}/apply", json={"layer_overrides": {}})
+        resp = client.get(f"/api/session/{sid}/download?format=dxf")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/dxf"
+        assert "layeron_test.dxf" in resp.headers["content-disposition"]
+
+    def test_download_invalid_format_falls_back(self, client, uploaded_session):
+        """Invalid format parameter should fall back to original format."""
+        sid = uploaded_session["session_id"]
+        client.post(f"/api/session/{sid}/apply", json={"layer_overrides": {}})
+        resp = client.get(f"/api/session/{sid}/download?format=xyz")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/dxf"
+
 
 class TestHiddenLayers:
     def test_hidden_layers_removed_from_output(self, client, uploaded_session):
@@ -176,13 +211,16 @@ class TestHiddenLayers:
 
         doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
 
-        # Hidden layer should be turned off
-        layer = doc.layers.get("A0013111")
+        # Hidden layer should be turned off (renamed)
+        layer = doc.layers.get(_renamed("A0013111"))
         assert layer.is_off()
 
-        # No entities should be on the hidden layer
+        # No entities should be on the hidden layer (check both old and new name)
         msp = doc.modelspace()
-        hidden_entities = [e for e in msp if e.dxf.layer == "A0013111"]
+        hidden_entities = [
+            e for e in msp
+            if e.dxf.layer in ("A0013111", _renamed("A0013111"))
+        ]
         assert len(hidden_entities) == 0
 
     def test_non_hidden_layers_preserved(self, client, uploaded_session):
@@ -197,7 +235,7 @@ class TestHiddenLayers:
         doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
 
         # Non-hidden layer should still be on
-        layer = doc.layers.get("B0014110")
+        layer = doc.layers.get(_renamed("B0014110"))
         assert layer.is_on()
 
     def test_empty_hidden_layers(self, client, uploaded_session):

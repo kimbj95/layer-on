@@ -2,6 +2,8 @@ import json
 from collections import Counter
 from pathlib import Path
 
+from utils.layer_name_en import CATEGORY_MAJOR_EN, build_renamed
+
 _DEFAULT_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 _UNKNOWN = {
@@ -28,15 +30,19 @@ class LayerMapper:
 
     def get_layer_info(self, layer_code: str | None) -> dict:
         if not layer_code:
-            return {**_UNKNOWN}
+            return {**_UNKNOWN, "renamed": ""}
 
         code = layer_code.strip().upper()
         if not code:
-            return {**_UNKNOWN}
+            return {**_UNKNOWN, "renamed": ""}
 
         # 1. Exact match
         if code in self._codes:
-            return {**self._codes[code], "is_mapped": True}
+            info = {**self._codes[code], "is_mapped": True}
+            info["renamed"] = build_renamed(
+                code, info.get("category_major", ""), info.get("category_mid", ""),
+            )
+            return info
 
         # 2. Prefix match — 7 chars then 4 chars
         for length in (7, 4):
@@ -44,17 +50,22 @@ class LayerMapper:
                 prefix = code[:length]
                 for value in self._codes.values():
                     if value["code"].startswith(prefix):
-                        return {
+                        info = {
                             **value,
                             "code": code,
                             "name": value["category_mid"],
                             "is_mapped": False,
                         }
+                        info["renamed"] = build_renamed(
+                            code, info.get("category_major", ""), info.get("category_mid", ""),
+                        )
+                        return info
 
         # 3. Category fallback — first letter
         first = code[0]
         if first in self._categories:
             cat = self._categories[first]
+            major_en = CATEGORY_MAJOR_EN.get(first, "")
             return {
                 "code": code,
                 "name": cat["name"],
@@ -66,10 +77,11 @@ class LayerMapper:
                 "linetype": "Continuous",
                 "structure": "",
                 "is_mapped": False,
+                "renamed": f"{code}_{major_en}" if major_en else code,
             }
 
         # 4. Unknown
-        return {**_UNKNOWN, "code": code}
+        return {**_UNKNOWN, "code": code, "renamed": code}
 
     def get_all_categories(self) -> list[dict]:
         counts = Counter(v["category_major"] for v in self._codes.values())

@@ -23,7 +23,8 @@ function matchesQuery(layer: LayerInfo, q: string): boolean {
     layer.original_name.toLowerCase().includes(lower) ||
     layer.name.toLowerCase().includes(lower) ||
     layer.code.toLowerCase().includes(lower) ||
-    layer.category_mid.toLowerCase().includes(lower)
+    layer.category_mid.toLowerCase().includes(lower) ||
+    (layer.renamed ? layer.renamed.toLowerCase().includes(lower) : false)
   );
 }
 
@@ -121,6 +122,7 @@ export default function LayerList({
                   layer={layer}
                   selected={selectedLayer === layer.original_name}
                   hidden={hiddenLayers.has(layer.original_name)}
+
                   onToggleVisibility={() =>
                     onToggleLayerVisibility(layer.original_name)
                   }

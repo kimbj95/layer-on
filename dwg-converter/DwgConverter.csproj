@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ACadSharp" Version="3.4.24" />
+    <ProjectReference Include="../lib/ACadSharp/src/ACadSharp/ACadSharp.csproj" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
   </ItemGroup>
 

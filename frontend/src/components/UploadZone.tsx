@@ -8,6 +8,7 @@ import type { SessionState } from "@/types";
 interface UploadZoneProps {
   onUploadComplete: (data: SessionState) => void;
   onError: (message: string) => void;
+  onOpenGuide?: () => void;
 }
 
 const STEPS = [
@@ -29,6 +30,7 @@ function getTimeEstimate(sizeBytes: number): string {
 export default function UploadZone({
   onUploadComplete,
   onError,
+  onOpenGuide,
 }: UploadZoneProps) {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -112,6 +114,31 @@ export default function UploadZone({
 
   return (
     <div>
+      {onOpenGuide && (
+        <div style={{ display: "flex", justifyContent: "flex-end", padding: "8px 14px 0" }}>
+          <button
+            onClick={onOpenGuide}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 11,
+              color: "var(--text-secondary)",
+              display: "flex",
+              alignItems: "center",
+              gap: 3,
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-label)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01" />
+            </svg>
+            사용 가이드
+          </button>
+        </div>
+      )}
       <div
         onClick={() => !uploading && inputRef.current?.click()}
         onDragOver={(e) => {
@@ -122,7 +149,7 @@ export default function UploadZone({
         onDrop={handleDrop}
         className={uploading ? "" : "cursor-pointer transition-colors"}
         style={{
-          margin: 12,
+          margin: onOpenGuide ? "4px 12px" : "12px",
           marginBottom: inlineError ? 4 : 12,
           border: `1px dashed ${dragOver ? "var(--accent-blue)" : "var(--border-interactive)"}`,
           borderRadius: 8,

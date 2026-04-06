@@ -2,6 +2,7 @@ export interface LayerInfo {
   original_name: string;
   code: string;
   name: string;
+  renamed: string;
   category_major: string;
   category_major_name: string;
   category_mid: string;

@@ -60,6 +60,15 @@ async def modify_dwg(input_path: str, output_path: str, config_path: str) -> Non
     await asyncio.to_thread(_sync_modify_dwg, input_path, output_path, config_path)
 
 
+def _sync_modify_dwg_to_dxf(input_path: str, output_path: str, config_path: str) -> None:
+    """Modify DWG layers (ACI colors + descriptions) and output as DXF."""
+    _sync_run(["modify-to-dxf", input_path, output_path, config_path])
+
+
+async def modify_dwg_to_dxf(input_path: str, output_path: str, config_path: str) -> None:
+    await asyncio.to_thread(_sync_modify_dwg_to_dxf, input_path, output_path, config_path)
+
+
 async def list_dwg_layers(dwg_path: str) -> dict:
     return await asyncio.to_thread(_sync_list_layers, dwg_path)
 

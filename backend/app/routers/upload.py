@@ -16,6 +16,7 @@ from utils.color_utils import get_default_aci
 from utils.dwg_converter import (
     is_converter_available,
     modify_dwg,
+    modify_dwg_to_dxf,
     list_dwg_layers,
     dwg_to_dxf_preview,
 )
@@ -331,20 +332,37 @@ class LayerOverride(BaseModel):
 class ApplyRequest(BaseModel):
     layer_overrides: dict[str, LayerOverride] = {}
     hidden_layers: list[str] = []
+    rename_layers: bool = True
+
+
+def _build_description(layer_info: dict) -> str:
+    """Build layer description string from layer info."""
+    korean_label = layer_info["name"]
+    cat_major = layer_info.get("category_major", "")
+    cat_major_name = layer_info.get("category_major_name", "")
+    mid_category = layer_info.get("category_mid", "")
+    if cat_major and mid_category:
+        return f"[{cat_major} {cat_major_name} > {mid_category}] {korean_label}"
+    elif cat_major:
+        return f"[{cat_major} {cat_major_name}] {korean_label}"
+    return korean_label
 
 
 def _sync_apply_dxf(
     session_dir: Path,
     overrides: dict[str, dict],
     hidden_layers: set[str],
+    rename_layers: bool = True,
 ) -> None:
-    """Apply ACI colors + descriptions to DXF file."""
+    """Apply ACI colors + descriptions + renames to DXF file."""
     doc = ezdxf.readfile(str(session_dir / "input.dxf"))
 
     # Upgrade to R2010 for UTF-8 description encoding
     if doc.dxfversion < "AC1024":
         doc._dxfversion = "AC1024"
         doc.header["$ACADVER"] = "AC1024"
+
+    renames: dict[str, str] = {}
 
     for layer in doc.layers:
         layer_name = layer.dxf.name
@@ -362,17 +380,8 @@ def _sync_apply_dxf(
         if layer.dxf.hasattr("true_color"):
             del layer.dxf.true_color
 
-        # Set description (DXF only)
-        korean_label = layer_info["name"]
-        cat_major = layer_info.get("category_major", "")
-        cat_major_name = layer_info.get("category_major_name", "")
-        mid_category = layer_info.get("category_mid", "")
-        if cat_major and mid_category:
-            layer.description = f"[{cat_major} {cat_major_name} > {mid_category}] {korean_label}"
-        elif cat_major:
-            layer.description = f"[{cat_major} {cat_major_name}] {korean_label}"
-        else:
-            layer.description = korean_label
+        # Set description
+        layer.description = _build_description(layer_info)
 
         # Set linetype
         linetype = layer_info.get("linetype", "Continuous")
@@ -382,6 +391,11 @@ def _sync_apply_dxf(
                 layer.dxf.linetype = linetype
             except ezdxf.DXFTableEntryError:
                 pass
+
+        # Collect renames
+        renamed = layer_info.get("renamed", "")
+        if renamed and renamed != layer_name:
+            renames[layer_name] = renamed
 
     # Delete entities on hidden layers
     if hidden_layers:
@@ -393,6 +407,14 @@ def _sync_apply_dxf(
             if layer.dxf.name in hidden_layers:
                 layer.off()
 
+    # Apply renames last (ezdxf.rename also updates entity references)
+    if rename_layers:
+        for old_name, new_name in renames.items():
+            try:
+                doc.layers.get(old_name).rename(new_name)
+            except Exception:
+                pass
+
     doc.saveas(str(session_dir / "output.dxf"))
 
 
@@ -400,10 +422,11 @@ async def _apply_dwg(
     session_dir: Path,
     overrides: dict[str, dict],
     hidden_layers: list[str],
+    rename_layers: bool = True,
 ) -> None:
-    """Apply ACI colors to DWG file via ACadSharp CLI."""
-    # Build config.json
-    config = {"layers": {}, "hidden_layers": hidden_layers}
+    """Apply ACI colors to DWG + generate DXF with descriptions."""
+    # Build config.json (with descriptions + renames for DXF output)
+    config: dict = {"layers": {}, "hidden_layers": hidden_layers, "renames": {}}
 
     # Get all layers from state
     state = json.loads((session_dir / "state.json").read_text(encoding="utf-8"))
@@ -418,16 +441,30 @@ async def _apply_dwg(
             aci = overrides[name]["aci_color"]
         else:
             aci = layer_data.get("default_aci_color", 7)
-        config["layers"][name] = {"aci_color": aci}
+
+        layer_info = mapper.get_layer_info(name)
+        description = _build_description(layer_info)
+        config["layers"][name] = {"aci_color": aci, "description": description}
+
+        if rename_layers:
+            renamed = layer_info.get("renamed", "")
+            if renamed and renamed != name:
+                config["renames"][name] = renamed
 
     config_path = session_dir / "config.json"
     config_path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
 
-    await modify_dwg(
-        str(session_dir / "input.dwg"),
-        str(session_dir / "output.dwg"),
-        str(config_path),
-    )
+    input_dwg = str(session_dir / "input.dwg")
+
+    # Generate DWG (color only) and DXF (color + description) in parallel
+    dwg_task = modify_dwg(input_dwg, str(session_dir / "output.dwg"), str(config_path))
+    dxf_task = modify_dwg_to_dxf(input_dwg, str(session_dir / "output.dxf"), str(config_path))
+
+    dwg_result = await asyncio.gather(dwg_task, dxf_task, return_exceptions=True)
+
+    # DWG must succeed; DXF failure is non-fatal
+    if isinstance(dwg_result[0], Exception):
+        raise dwg_result[0]
 
 
 @router.post("/session/{session_id}/apply")
@@ -444,13 +481,13 @@ async def apply_colors(session_id: str, body: ApplyRequest):
     try:
         if original_format == "dwg":
             await asyncio.wait_for(
-                _apply_dwg(session_dir, overrides, body.hidden_layers),
+                _apply_dwg(session_dir, overrides, body.hidden_layers, body.rename_layers),
                 timeout=PARSE_TIMEOUT,
             )
         else:
             await asyncio.wait_for(
                 asyncio.to_thread(
-                    _sync_apply_dxf, session_dir, overrides, set(body.hidden_layers),
+                    _sync_apply_dxf, session_dir, overrides, set(body.hidden_layers), body.rename_layers,
                 ),
                 timeout=PARSE_TIMEOUT,
             )
@@ -465,6 +502,8 @@ async def apply_colors(session_id: str, body: ApplyRequest):
     state["has_output"] = True
     stem = Path(state["file_name"]).stem
     state["output_filename"] = f"layeron_{stem}.{original_format}"
+    if original_format == "dwg":
+        state["dxf_output_available"] = (session_dir / "output.dxf").exists()
     (session_dir / "state.json").write_text(
         json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8"
     )
@@ -476,14 +515,21 @@ async def apply_colors(session_id: str, body: ApplyRequest):
 
 
 @router.get("/session/{session_id}/download")
-async def download_file(session_id: str):
+async def download_file(session_id: str, format: str | None = None):
     session_dir = SESSIONS_DIR / session_id
     if not (session_dir / "state.json").exists():
         raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
 
     state = json.loads((session_dir / "state.json").read_text(encoding="utf-8"))
     original_format = state.get("original_format", "dxf")
-    output_path = session_dir / f"output.{original_format}"
+
+    # Determine download format
+    if format and format in ("dwg", "dxf"):
+        download_format = format
+    else:
+        download_format = original_format
+
+    output_path = session_dir / f"output.{download_format}"
 
     if not output_path.exists():
         raise HTTPException(
@@ -491,8 +537,9 @@ async def download_file(session_id: str):
             detail="아직 색상이 적용되지 않았습니다. 먼저 '적용' 버튼을 눌러주세요.",
         )
 
-    filename = state.get("output_filename", f"layeron_{state['file_name']}")
-    media_type = "application/dwg" if original_format == "dwg" else "application/dxf"
+    stem = Path(state["file_name"]).stem
+    filename = f"layeron_{stem}.{download_format}"
+    media_type = "application/dwg" if download_format == "dwg" else "application/dxf"
 
     return FileResponse(path=str(output_path), filename=filename, media_type=media_type)
 

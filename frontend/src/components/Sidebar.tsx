@@ -3,10 +3,10 @@
 import { useState } from "react";
 import type { LayerInfo, SessionState } from "@/types";
 import UploadZone from "./UploadZone";
-import DxfGuide from "./DxfGuide";
 import FileInfo from "./FileInfo";
 import ColorEditor from "./ColorEditor";
 import SecurityModal from "./SecurityModal";
+import UsageGuideModal from "./UsageGuideModal";
 
 interface SidebarProps {
   session: SessionState | null;
@@ -39,6 +39,7 @@ export default function Sidebar({
     : 0;
 
   const [showSecurity, setShowSecurity] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   return (
     <div
@@ -49,8 +50,7 @@ export default function Sidebar({
         borderRight: "0.5px solid var(--border)",
       }}
     >
-      <UploadZone onUploadComplete={onUploadComplete} onError={onError} />
-      <DxfGuide />
+      <UploadZone onUploadComplete={onUploadComplete} onError={onError} onOpenGuide={() => setShowGuide(true)} />
 
       {session && (
         <>
@@ -121,7 +121,7 @@ export default function Sidebar({
         className="mt-auto flex"
         style={{
           padding: "10px 10px",
-          fontSize: 9,
+          fontSize: 10,
           lineHeight: 1.5,
           gap: 6,
         }}
@@ -159,7 +159,6 @@ export default function Sidebar({
           style={{
             background: "none",
             padding: "6px 4px",
-            fontSize: 9,
             color: "var(--text-dim)",
             cursor: "pointer",
             borderRadius: 6,
@@ -175,11 +174,16 @@ export default function Sidebar({
             e.currentTarget.style.borderColor = "var(--border)";
           }}
         >
-          🔒 보안안내
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginBottom: 1 }}>
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0110 0v4" />
+          </svg>
+          보안안내
         </button>
       </div>
 
       <SecurityModal open={showSecurity} onClose={() => setShowSecurity(false)} />
+      <UsageGuideModal open={showGuide} onClose={() => setShowGuide(false)} />
     </div>
   );
 }

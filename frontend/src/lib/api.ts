@@ -3,7 +3,7 @@ import type { GeometryData, SessionState } from "@/types";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export interface UploadProgress {
-  step: "uploading" | "converting" | "parsing" | "mapping" | "finalizing";
+  step: "uploading" | "parsing" | "mapping" | "finalizing";
   message: string;
   percent: number;
 }
@@ -84,6 +84,7 @@ export async function applyColors(
   sessionId: string,
   layerOverrides: Record<string, { aci_color: number }>,
   hiddenLayers: string[] = [],
+  renameLayers: boolean = true,
 ): Promise<{ status: string; output_filename: string }> {
   const res = await fetch(`${API_BASE}/api/session/${sessionId}/apply`, {
     method: "POST",
@@ -91,6 +92,7 @@ export async function applyColors(
     body: JSON.stringify({
       layer_overrides: layerOverrides,
       hidden_layers: hiddenLayers,
+      rename_layers: renameLayers,
     }),
   });
   if (!res.ok) {
@@ -100,8 +102,12 @@ export async function applyColors(
   return res.json();
 }
 
-export async function downloadDxf(sessionId: string): Promise<Blob> {
-  const res = await fetch(`${API_BASE}/api/session/${sessionId}/download`);
+export async function downloadFile(
+  sessionId: string,
+  format?: "dwg" | "dxf",
+): Promise<Blob> {
+  const params = format ? `?format=${format}` : "";
+  const res = await fetch(`${API_BASE}/api/session/${sessionId}/download${params}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: "다운로드 실패" }));
     throw new Error(err.detail);

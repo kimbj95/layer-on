@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GeometryData, LayerInfo, SessionState } from "@/types";
-import { applyColors, downloadDxf, getGeometry } from "@/lib/api";
+import { applyColors, downloadFile, getGeometry } from "@/lib/api";
 import { aciToHex } from "@/lib/constants";
 import TopBar from "@/components/TopBar";
 import Sidebar from "@/components/Sidebar";
@@ -68,6 +68,7 @@ export default function Home() {
   const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [hiddenLayers, setHiddenLayers] = useState<Set<string>>(new Set());
+  const [renameLayers, setRenameLayers] = useState(true);
   const [geometryData, setGeometryData] = useState<GeometryData | null>(null);
   const [geometryLoading, setGeometryLoading] = useState(false);
   const [geometryError, setGeometryError] = useState<string | null>(null);
@@ -256,9 +257,9 @@ export default function Home() {
   }, []);
 
   const handleSave = useCallback(
-    async () => {
+    async (fmt?: "dwg" | "dxf") => {
       if (!session || !baseSession) return;
-      const format = baseSession.original_format ?? "dxf";
+      const downloadFormat = fmt ?? baseSession.original_format ?? "dxf";
       setSaving(true);
       try {
         const overrides: Record<string, { aci_color: number }> = {};
@@ -266,15 +267,15 @@ export default function Home() {
           overrides[name] = { aci_color: aci };
         }
         await applyColors(
-          baseSession.session_id, overrides, Array.from(hiddenLayers),
+          baseSession.session_id, overrides, Array.from(hiddenLayers), renameLayers,
         );
 
-        const blob = await downloadDxf(baseSession.session_id);
+        const blob = await downloadFile(baseSession.session_id, downloadFormat);
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
         const baseName = baseSession.file_name.replace(/\.(dxf|dwg)$/i, "");
-        a.download = `layeron_${baseName}.${format}`;
+        a.download = `layeron_${baseName}.${downloadFormat}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -294,7 +295,7 @@ export default function Home() {
         setSaving(false);
       }
     },
-    [session, baseSession, colorOverrides, hiddenLayers, showToast],
+    [session, baseSession, colorOverrides, hiddenLayers, renameLayers, showToast],
   );
 
   // Cmd/Ctrl+S
@@ -324,6 +325,8 @@ export default function Home() {
         saving={saving}
         hasSession={!!session}
         originalFormat={session?.original_format}
+        renameLayers={renameLayers}
+        onRenameLayersChange={setRenameLayers}
         onSave={handleSave}
         onResetAll={handleResetAll}
       />
