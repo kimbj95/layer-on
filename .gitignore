@@ -28,3 +28,7 @@ test-files/
 dwg-converter/bin/
 dwg-converter/obj/
 dwg-converter/publish/
+
+# Local tools & libs
+lib/
+tools/
