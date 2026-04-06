@@ -2,6 +2,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS dotnet-build
 WORKDIR /src
 COPY dwg-converter/ ./dwg-converter/
+COPY lib/ACadSharp/src/ ./lib/ACadSharp/src/
 RUN dotnet publish dwg-converter/DwgConverter.csproj \
     -c Release -r linux-x64 \
     --self-contained true \
