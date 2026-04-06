@@ -15,7 +15,7 @@ WORKDIR /app
 
 # Install system deps for .NET self-contained binary
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libicu72 libstdc++6 \
+    libicu-dev libstdc++6 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy DWG converter binary
