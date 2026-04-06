@@ -25,4 +25,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ .
 
 EXPOSE 8000
+RUN ls -la /app/bin/ && echo "=== DwgConverter found ===" || echo "=== DwgConverter MISSING ==="
+RUN ls -la /app/app/ /app/utils/ || echo "=== App structure check ==="
 CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
