@@ -334,12 +334,15 @@ export default function MapPreview({
         <div
           style={{
             position: "absolute",
-            bottom: 6,
+            top: 0,
             left: 0,
             right: 0,
+            padding: "5px 12px",
+            background: "rgba(26, 29, 33, 0.85)",
+            borderBottom: "0.5px solid var(--border)",
+            fontSize: 11,
+            color: "var(--text-muted)",
             textAlign: "center",
-            fontSize: 10,
-            color: "var(--text-dim)",
             pointerEvents: "none",
           }}
         >
