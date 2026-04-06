@@ -82,8 +82,7 @@ export async function getGeometry(
 
 export async function applyColors(
   sessionId: string,
-  layerOverrides: Record<string, { color: string }>,
-  outputFormat: "dxf" | "dwg" = "dxf",
+  layerOverrides: Record<string, { aci_color: number }>,
   hiddenLayers: string[] = [],
 ): Promise<{ status: string; output_filename: string }> {
   const res = await fetch(`${API_BASE}/api/session/${sessionId}/apply`, {
@@ -91,7 +90,6 @@ export async function applyColors(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       layer_overrides: layerOverrides,
-      output_format: outputFormat,
       hidden_layers: hiddenLayers,
     }),
   });

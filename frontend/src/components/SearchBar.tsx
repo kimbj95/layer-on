@@ -1,6 +1,6 @@
 "use client";
 
-import { CATEGORY_META } from "@/lib/constants";
+import { CATEGORY_META, aciToHex } from "@/lib/constants";
 
 interface SearchBarProps {
   query: string;
@@ -122,7 +122,7 @@ export default function SearchBar({
                   width: 8,
                   height: 8,
                   borderRadius: 2,
-                  background: cat.color,
+                  background: aciToHex(cat.aci),
                 }}
               />
               <span>

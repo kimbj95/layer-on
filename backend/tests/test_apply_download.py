@@ -51,12 +51,13 @@ class TestApplyDefaults:
         state = json.loads((SESSIONS_DIR / sid / "state.json").read_text())
         assert state["has_output"] is True
 
-    def test_rgb_applied_to_layers(self, client, uploaded_session):
+    def test_aci_applied_to_layers(self, client, uploaded_session):
         sid = uploaded_session["session_id"]
         client.post(f"/api/session/{sid}/apply", json={"layer_overrides": {}})
         doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
         highway = doc.layers.get("A0013111")
-        assert highway.rgb is not None
+        # Default ACI for category A (교통) = 1 (Red)
+        assert highway.color == 1
 
     def test_description_set(self, client, uploaded_session):
         sid = uploaded_session["session_id"]
@@ -67,47 +68,47 @@ class TestApplyDefaults:
 
 
 class TestApplyOverrides:
-    def test_override_color(self, client, uploaded_session):
+    def test_override_aci_color(self, client, uploaded_session):
         sid = uploaded_session["session_id"]
         resp = client.post(
             f"/api/session/{sid}/apply",
             json={
                 "layer_overrides": {
-                    "A0013111": {"color": "#00FF00"}
+                    "A0013111": {"aci_color": 3}
                 }
             },
         )
         assert resp.status_code == 200
         doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
         highway = doc.layers.get("A0013111")
-        assert highway.rgb == (0, 255, 0)
+        assert highway.color == 3  # Green
 
     def test_override_partial(self, client, uploaded_session):
-        """Override only color, linetype should use mapper default."""
+        """Override only one layer, others get defaults."""
         sid = uploaded_session["session_id"]
         resp = client.post(
             f"/api/session/{sid}/apply",
             json={
                 "layer_overrides": {
-                    "B0014110": {"color": "#AABBCC"}
+                    "B0014110": {"aci_color": 5}
                 }
             },
         )
         assert resp.status_code == 200
         doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
         building = doc.layers.get("B0014110")
-        assert building.rgb == (170, 187, 204)
+        assert building.color == 5  # Blue
 
     def test_non_overridden_layers_get_defaults(self, client, uploaded_session):
         sid = uploaded_session["session_id"]
         client.post(
             f"/api/session/{sid}/apply",
-            json={"layer_overrides": {"A0013111": {"color": "#00FF00"}}},
+            json={"layer_overrides": {"A0013111": {"aci_color": 3}}},
         )
         doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
-        # B0014110 should still get its default color (#FFD32A)
+        # B0014110 should get its default ACI color (category B = 2)
         building = doc.layers.get("B0014110")
-        assert building.rgb == (255, 211, 42)
+        assert building.color == 2  # Yellow
 
 
 class TestApplyErrors:
@@ -123,15 +124,15 @@ class TestApplyErrors:
         sid = uploaded_session["session_id"]
         client.post(
             f"/api/session/{sid}/apply",
-            json={"layer_overrides": {"A0013111": {"color": "#FF0000"}}},
+            json={"layer_overrides": {"A0013111": {"aci_color": 1}}},
         )
         client.post(
             f"/api/session/{sid}/apply",
-            json={"layer_overrides": {"A0013111": {"color": "#0000FF"}}},
+            json={"layer_overrides": {"A0013111": {"aci_color": 5}}},
         )
         doc = ezdxf.readfile(str(SESSIONS_DIR / sid / "output.dxf"))
         highway = doc.layers.get("A0013111")
-        assert highway.rgb == (0, 0, 255)
+        assert highway.color == 5  # Blue
 
 
 class TestDownload:
@@ -161,20 +162,6 @@ class TestDownload:
         resp = client.get(f"/api/session/{sid}/download")
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "application/dxf"
-
-
-class TestDwgOutput:
-    def test_apply_dwg_without_converter(self, client, uploaded_session):
-        from unittest.mock import patch
-
-        sid = uploaded_session["session_id"]
-        with patch("app.routers.upload.is_converter_available", return_value=False):
-            resp = client.post(
-                f"/api/session/{sid}/apply",
-                json={"layer_overrides": {}, "output_format": "dwg"},
-            )
-        assert resp.status_code == 400
-        assert "변환기" in resp.json()["detail"]
 
 
 class TestHiddenLayers:

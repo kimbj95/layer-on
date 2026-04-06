@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { CategoryGroup, LayerInfo, SessionState } from "@/types";
-import { CATEGORY_COLOR_MAP, COLOR_PRESETS } from "@/lib/constants";
+import { ACI_PALETTE, CATEGORY_ACI_MAP, aciToHex } from "@/lib/constants";
 import LinetypePreview from "./LinetypePreview";
 
 interface LayerListProps {
@@ -11,7 +11,7 @@ interface LayerListProps {
   activeCategories: Set<string>;
   selectedLayer: string | null;
   onSelectLayer: (layerName: string) => void;
-  onApplyToCategory: (categoryMajor: string, color: string) => void;
+  onApplyToCategory: (categoryMajor: string, aciColor: number) => void;
   hiddenLayers: Set<string>;
   onToggleLayerVisibility: (layerName: string) => void;
   onToggleCategoryVisibility: (categoryMajor: string) => void;
@@ -96,7 +96,7 @@ export default function LayerList({
       {filteredCategories.map((group) => {
         const key = group.category_major;
         const isCollapsed = collapsed[key] ?? false;
-        const dotColor = CATEGORY_COLOR_MAP[key] ?? "var(--text-dim)";
+        const dotColor = aciToHex(CATEGORY_ACI_MAP[key] ?? 7);
 
         const allHidden = group.layers.every((l) =>
           hiddenLayers.has(l.original_name),
@@ -187,7 +187,7 @@ function GroupHeader({
   count: number;
   onClick: () => void;
   warning?: boolean;
-  onApplyColor?: (color: string) => void;
+  onApplyColor?: (aciColor: number) => void;
   checked?: boolean;
   onToggleVisibility?: () => void;
 }) {
@@ -288,23 +288,24 @@ function GroupHeader({
                 borderRadius: 8,
                 padding: 8,
                 display: "grid",
-                gridTemplateColumns: "repeat(5, 1fr)",
+                gridTemplateColumns: "repeat(9, 1fr)",
                 gap: 4,
               }}
             >
-              {COLOR_PRESETS.map((color) => (
+              {ACI_PALETTE.map((aci) => (
                 <button
-                  key={color}
+                  key={aci}
                   onClick={() => {
-                    onApplyColor(color);
+                    onApplyColor(aci);
                     setPickerOpen(false);
                   }}
                   className="cursor-pointer"
+                  title={`ACI ${aci}`}
                   style={{
                     width: 22,
                     height: 22,
                     borderRadius: 4,
-                    background: color,
+                    background: aciToHex(aci),
                     border: "0.5px solid rgba(255,255,255,0.15)",
                   }}
                 />
@@ -392,13 +393,13 @@ function LayerRow({
           width: 14,
           height: 14,
           borderRadius: 3,
-          background: layer.current_color,
+          background: aciToHex(layer.current_aci_color),
           border: "0.5px solid rgba(255,255,255,0.1)",
         }}
       />
       <LinetypePreview
         linetype={layer.linetype}
-        color={layer.current_color}
+        color={aciToHex(layer.current_aci_color)}
       />
     </div>
   );

@@ -12,8 +12,8 @@ interface SidebarProps {
   onUploadComplete: (data: SessionState) => void;
   onError: (message: string) => void;
   onReset: () => void;
-  onColorChange: (layerName: string, color: string) => void;
-  onApplyToCategory: (categoryMajor: string, color: string) => void;
+  onColorChange: (layerName: string, aciColor: number) => void;
+  onApplyToCategory: (categoryMajor: string, aciColor: number) => void;
   onResetToDefault: (layerName: string) => void;
 }
 

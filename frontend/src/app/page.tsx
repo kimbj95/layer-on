@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GeometryData, LayerInfo, SessionState } from "@/types";
 import { applyColors, downloadDxf, getGeometry } from "@/lib/api";
+import { aciToHex } from "@/lib/constants";
 import TopBar from "@/components/TopBar";
 import Sidebar from "@/components/Sidebar";
 import BottomBar from "@/components/BottomBar";
@@ -25,14 +26,14 @@ function buildLayerMap(session: SessionState): Map<string, LayerInfo> {
 
 function applyOverridesToSession(
   session: SessionState,
-  overrides: Map<string, string>
+  overrides: Map<string, number>,
 ): SessionState {
   if (overrides.size === 0) return session;
 
   const mapLayers = (layers: LayerInfo[]) =>
     layers.map((l) => {
-      const color = overrides.get(l.original_name);
-      return color ? { ...l, current_color: color } : l;
+      const aci = overrides.get(l.original_name);
+      return aci !== undefined ? { ...l, current_aci_color: aci } : l;
     });
 
   return {
@@ -56,8 +57,8 @@ type Toast = {
 
 export default function Home() {
   const [baseSession, setBaseSession] = useState<SessionState | null>(null);
-  const [colorOverrides, setColorOverrides] = useState<Map<string, string>>(
-    new Map()
+  const [colorOverrides, setColorOverrides] = useState<Map<string, number>>(
+    new Map(),
   );
   const [toast, setToast] = useState<Toast | null>(null);
   const [query, setQuery] = useState("");
@@ -105,9 +106,9 @@ export default function Home() {
     const map = new Map<string, string>();
     if (!session) return map;
     for (const cat of session.categories) {
-      for (const l of cat.layers) map.set(l.original_name, l.current_color);
+      for (const l of cat.layers) map.set(l.original_name, aciToHex(l.current_aci_color));
     }
-    for (const l of session.unmapped_layers) map.set(l.original_name, l.current_color);
+    for (const l of session.unmapped_layers) map.set(l.original_name, aciToHex(l.current_aci_color));
     return map;
   }, [session]);
 
@@ -168,28 +169,25 @@ export default function Home() {
   }, []);
 
   const handleColorChange = useCallback(
-    (layerName: string, color: string) => {
+    (layerName: string, aciColor: number) => {
       if (!baseSession) return;
       setColorOverrides((prev) => {
         const next = new Map(prev);
         const baseMap = buildLayerMap(baseSession);
         const original = baseMap.get(layerName);
-        if (
-          original &&
-          original.default_color.toLowerCase() === color.toLowerCase()
-        ) {
+        if (original && original.default_aci_color === aciColor) {
           next.delete(layerName);
         } else {
-          next.set(layerName, color);
+          next.set(layerName, aciColor);
         }
         return next;
       });
     },
-    [baseSession]
+    [baseSession],
   );
 
   const handleApplyToCategory = useCallback(
-    (categoryMajor: string, color: string) => {
+    (categoryMajor: string, aciColor: number) => {
       if (!baseSession) return;
       setColorOverrides((prev) => {
         const next = new Map(prev);
@@ -198,20 +196,17 @@ export default function Home() {
           if (cat.category_major !== categoryMajor) continue;
           for (const layer of cat.layers) {
             const original = baseMap.get(layer.original_name);
-            if (
-              original &&
-              original.default_color.toLowerCase() === color.toLowerCase()
-            ) {
+            if (original && original.default_aci_color === aciColor) {
               next.delete(layer.original_name);
             } else {
-              next.set(layer.original_name, color);
+              next.set(layer.original_name, aciColor);
             }
           }
         }
         return next;
       });
     },
-    [baseSession]
+    [baseSession],
   );
 
   const handleResetToDefault = useCallback((layerName: string) => {
@@ -261,17 +256,17 @@ export default function Home() {
   }, []);
 
   const handleSave = useCallback(
-    async (outputFormat: "dxf" | "dwg" = "dxf") => {
+    async () => {
       if (!session || !baseSession) return;
+      const format = baseSession.original_format ?? "dxf";
       setSaving(true);
       try {
-        const overrides: Record<string, { color: string }> = {};
-        for (const [name, color] of colorOverrides) {
-          overrides[name] = { color };
+        const overrides: Record<string, { aci_color: number }> = {};
+        for (const [name, aci] of colorOverrides) {
+          overrides[name] = { aci_color: aci };
         }
         await applyColors(
-          baseSession.session_id, overrides, outputFormat,
-          Array.from(hiddenLayers),
+          baseSession.session_id, overrides, Array.from(hiddenLayers),
         );
 
         const blob = await downloadDxf(baseSession.session_id);
@@ -279,7 +274,7 @@ export default function Home() {
         const a = document.createElement("a");
         a.href = url;
         const baseName = baseSession.file_name.replace(/\.(dxf|dwg)$/i, "");
-        a.download = `layeron_${baseName}.${outputFormat}`;
+        a.download = `layeron_${baseName}.${format}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -299,7 +294,7 @@ export default function Home() {
         setSaving(false);
       }
     },
-    [session, baseSession, colorOverrides, hiddenLayers, showToast]
+    [session, baseSession, colorOverrides, hiddenLayers, showToast],
   );
 
   // Cmd/Ctrl+S
@@ -328,7 +323,8 @@ export default function Home() {
         dirty={dirty}
         saving={saving}
         hasSession={!!session}
-        onSave={(fmt) => handleSave(fmt)}
+        originalFormat={session?.original_format}
+        onSave={handleSave}
         onResetAll={handleResetAll}
       />
 

@@ -117,9 +117,15 @@ async def get_geometry(session_id: str):
     if cache_path.exists():
         return json.loads(cache_path.read_text(encoding="utf-8"))
 
-    dxf_path = session_dir / "input.dxf"
+    # DWG: use preview.dxf (generated during upload), DXF: use input.dxf
+    state = json.loads((session_dir / "state.json").read_text(encoding="utf-8"))
+    if state.get("original_format") == "dwg":
+        dxf_path = session_dir / "preview.dxf"
+    else:
+        dxf_path = session_dir / "input.dxf"
+
     if not dxf_path.exists():
-        raise HTTPException(status_code=404, detail="DXF 파일을 찾을 수 없습니다")
+        raise HTTPException(status_code=404, detail="미리보기 파일을 찾을 수 없습니다")
 
     try:
         result = await asyncio.wait_for(

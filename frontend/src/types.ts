@@ -7,7 +7,8 @@ export interface LayerInfo {
   category_mid: string;
   default_color: string;
   official_color: string;
-  current_color: string;
+  default_aci_color: number;
+  current_aci_color: number;
   linetype: string;
   structure: string;
   is_mapped: boolean;
@@ -33,7 +34,6 @@ export interface SessionState {
   has_output?: boolean;
   output_filename?: string;
   original_format?: "dxf" | "dwg";
-  output_format?: "dxf" | "dwg";
   converter_available?: boolean;
 }
 

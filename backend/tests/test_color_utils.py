@@ -1,41 +1,53 @@
-from utils.color_utils import hex_to_rgb, rgb_to_hex
+"""Tests for ACI color utilities."""
+
+from utils.color_utils import (
+    CATEGORY_ACI_COLORS,
+    get_default_aci,
+    rgb_to_hex,
+)
 
 
-class TestHexToRgb:
-    def test_red_tone(self):
-        assert hex_to_rgb("#FF6B6B") == (255, 107, 107)
+class TestGetDefaultAci:
+    def test_traffic_category(self):
+        info = {"category_major": "A", "category_mid": "도로경계"}
+        assert get_default_aci(info) == 1  # Red
 
-    def test_black(self):
-        assert hex_to_rgb("#000000") == (0, 0, 0)
+    def test_building_category(self):
+        info = {"category_major": "B", "category_mid": "건물"}
+        assert get_default_aci(info) == 2  # Yellow
 
-    def test_white(self):
-        assert hex_to_rgb("#FFFFFF") == (255, 255, 255)
+    def test_water_category(self):
+        info = {"category_major": "E", "category_mid": "하천"}
+        assert get_default_aci(info) == 5  # Blue
 
-    def test_lowercase(self):
-        assert hex_to_rgb("#ff6b6b") == (255, 107, 107)
+    def test_subcategory_override_road_centerline(self):
+        info = {"category_major": "A", "category_mid": "도로중심선"}
+        assert get_default_aci(info) == 6  # Magenta
 
-    def test_no_hash(self):
-        assert hex_to_rgb("FF6B6B") == (255, 107, 107)
+    def test_subcategory_override_river_centerline(self):
+        info = {"category_major": "E", "category_mid": "하천중심선"}
+        assert get_default_aci(info) == 150  # Sky blue
+
+    def test_unknown_category(self):
+        info = {"category_major": "Z", "category_mid": ""}
+        assert get_default_aci(info) == 7  # White default
+
+    def test_empty_info(self):
+        assert get_default_aci({}) == 7
+
+
+class TestCategoryAciColors:
+    def test_all_categories_present(self):
+        for letter in "ABCDEFGH":
+            assert letter in CATEGORY_ACI_COLORS
 
 
 class TestRgbToHex:
-    def test_red_tone(self):
-        assert rgb_to_hex(255, 107, 107) == "#ff6b6b"
-
-    def test_black(self):
-        assert rgb_to_hex(0, 0, 0) == "#000000"
+    def test_red(self):
+        assert rgb_to_hex(255, 0, 0) == "#ff0000"
 
     def test_white(self):
         assert rgb_to_hex(255, 255, 255) == "#ffffff"
 
-
-class TestRoundTrip:
-    def test_hex_rgb_hex(self):
-        original = "#ff6b6b"
-        r, g, b = hex_to_rgb(original)
-        assert rgb_to_hex(r, g, b) == original
-
-    def test_rgb_hex_rgb(self):
-        r, g, b = 100, 200, 50
-        hex_val = rgb_to_hex(r, g, b)
-        assert hex_to_rgb(hex_val) == (r, g, b)
+    def test_black(self):
+        assert rgb_to_hex(0, 0, 0) == "#000000"

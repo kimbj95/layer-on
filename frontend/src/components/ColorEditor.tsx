@@ -1,15 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import type { LayerInfo } from "@/types";
-import { COLOR_PRESETS } from "@/lib/constants";
-
-const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+import { ACI_PALETTE, aciToHex } from "@/lib/constants";
 
 interface ColorEditorProps {
   layer: LayerInfo;
-  onColorChange: (layerName: string, color: string) => void;
-  onApplyToCategory: (categoryMajor: string, color: string) => void;
+  onColorChange: (layerName: string, aciColor: number) => void;
+  onApplyToCategory: (categoryMajor: string, aciColor: number) => void;
   onResetToDefault: (layerName: string) => void;
 }
 
@@ -19,24 +16,14 @@ export default function ColorEditor({
   onApplyToCategory,
   onResetToDefault,
 }: ColorEditorProps) {
-  const [hexInput, setHexInput] = useState("");
-
-  const applyHex = () => {
-    const val = hexInput.startsWith("#") ? hexInput : `#${hexInput}`;
-    if (HEX_RE.test(val)) {
-      onColorChange(layer.original_name, val);
-      setHexInput("");
-    }
-  };
-
   const handleCategoryApply = () => {
     if (!layer.category_major) return;
     const categoryName = layer.category_major_name;
     const confirmed = window.confirm(
-      `${layer.category_major} ${categoryName} 카테고리의 모든 레이어에 현재 색상(${layer.current_color})을 적용하시겠습니까?`
+      `${layer.category_major} ${categoryName} 카테고리의 모든 레이어에 ACI ${layer.current_aci_color} 색상을 적용하시겠습니까?`,
     );
     if (confirmed) {
-      onApplyToCategory(layer.category_major, layer.current_color);
+      onApplyToCategory(layer.category_major, layer.current_aci_color);
     }
   };
 
@@ -50,7 +37,6 @@ export default function ColorEditor({
         padding: "10px 12px",
       }}
     >
-      {/* Section label */}
       <div
         className="uppercase font-medium"
         style={{
@@ -63,7 +49,6 @@ export default function ColorEditor({
         색상 편집
       </div>
 
-      {/* Layer info */}
       <div
         className="font-mono"
         style={{ fontSize: 10, color: "var(--text-code)", marginBottom: 2 }}
@@ -77,68 +62,37 @@ export default function ColorEditor({
         {layer.name}
       </div>
       {layer.category_major && (
-        <div style={{ fontSize: 10, color: "var(--text-dim)", marginBottom: 10 }}>
+        <div
+          style={{ fontSize: 10, color: "var(--text-dim)", marginBottom: 10 }}
+        >
           {layer.category_major} {layer.category_major_name}
           {layer.category_mid ? ` > ${layer.category_mid}` : ""}
         </div>
       )}
 
-      {/* Color preset grid */}
+      {/* ACI color palette */}
       <div
         className="grid gap-1.5"
-        style={{ gridTemplateColumns: "repeat(5, 1fr)", marginBottom: 8 }}
+        style={{ gridTemplateColumns: "repeat(9, 1fr)", marginBottom: 10 }}
       >
-        {COLOR_PRESETS.map((color) => (
+        {ACI_PALETTE.map((aci) => (
           <button
-            key={color}
-            onClick={() => onColorChange(layer.original_name, color)}
+            key={aci}
+            onClick={() => onColorChange(layer.original_name, aci)}
             className="cursor-pointer"
+            title={`ACI ${aci}`}
             style={{
-              width: 28,
-              height: 28,
-              borderRadius: 5,
-              background: color,
+              width: 22,
+              height: 22,
+              borderRadius: 4,
+              background: aciToHex(aci),
               border:
-                layer.current_color.toLowerCase() === color.toLowerCase()
+                layer.current_aci_color === aci
                   ? "2px solid #fff"
-                  : "0.5px solid rgba(255,255,255,0.1)",
+                  : "0.5px solid rgba(255,255,255,0.15)",
             }}
           />
         ))}
-      </div>
-
-      {/* Custom hex input */}
-      <div className="flex items-center gap-1.5" style={{ marginBottom: 10 }}>
-        <div
-          className="shrink-0"
-          style={{
-            width: 20,
-            height: 20,
-            borderRadius: 4,
-            background:
-              HEX_RE.test(hexInput.startsWith("#") ? hexInput : `#${hexInput}`)
-                ? hexInput.startsWith("#") ? hexInput : `#${hexInput}`
-                : layer.current_color,
-            border: "0.5px solid rgba(255,255,255,0.1)",
-          }}
-        />
-        <input
-          value={hexInput}
-          onChange={(e) => setHexInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && applyHex()}
-          onBlur={() => hexInput && applyHex()}
-          placeholder="#RRGGBB"
-          className="flex-1 outline-none"
-          style={{
-            background: "var(--bg-app)",
-            border: "0.5px solid var(--border)",
-            borderRadius: 5,
-            padding: "3px 6px",
-            fontSize: 11,
-            color: "var(--text-label)",
-            fontFamily: "monospace",
-          }}
-        />
       </div>
 
       {/* Action buttons */}
