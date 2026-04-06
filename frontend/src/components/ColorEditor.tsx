@@ -73,7 +73,7 @@ export default function ColorEditor({
       {/* ACI color palette */}
       <div
         className="grid gap-1.5"
-        style={{ gridTemplateColumns: "repeat(9, 1fr)", marginBottom: 10 }}
+        style={{ gridTemplateColumns: "repeat(5, 1fr)", marginBottom: 10 }}
       >
         {ACI_PALETTE.map((aci) => (
           <button

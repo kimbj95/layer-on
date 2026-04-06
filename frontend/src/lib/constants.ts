@@ -13,12 +13,13 @@ export const CATEGORY_ACI_MAP: Record<string, number> = Object.fromEntries(
   CATEGORY_META.map((c) => [c.letter, c.aci]),
 );
 
-// ACI color palette for the color editor
-// Row 1: standard 9 colors (ACI 1-9)
-// Row 2: useful distinct colors from extended ACI palette
+// ACI color palette for the color editor (5 columns × 4 rows)
+// Grouped by hue: reds → oranges → yellows → greens → blues → purples → neutrals
 export const ACI_PALETTE = [
-  1, 2, 3, 4, 5, 6, 7, 8, 9,
-  14, 22, 30, 42, 62, 94, 134, 174, 210, 250,
+  1, 14, 22, 30, 2,      // red, salmon, orange, orange, yellow
+  42, 3, 62, 4, 94,      // yellow-green, green, spring, cyan, azure
+  5, 134, 150, 6, 174,   // blue, indigo, violet, magenta, pink
+  7, 8, 9, 210, 250,     // white, gray, light gray, crimson, near black
 ];
 
 // AutoCAD standard ACI color table (accurate values)
