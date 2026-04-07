@@ -8,6 +8,7 @@ RUN dotnet publish dwg-converter/DwgConverter.csproj \
     --self-contained true \
     /p:PublishSingleFile=true \
     /p:IncludeNativeLibrariesForSelfExtract=true \
+    /p:NoWarn=CS1591 \
     -o /out/bin
 
 # Stage 2: Python backend
